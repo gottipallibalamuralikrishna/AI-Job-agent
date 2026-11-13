@@ -1,0 +1,515 @@
+.recruiter-contacts-page {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding: 24px;
+  width: 100%;
+  color: #f3f1fa;
+}
+
+.contacts-page-heading,
+.contacts-section-heading,
+.contacts-results-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.contacts-eyebrow {
+  color: #a99aff !important;
+  font-size: 0.7rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 1.5px !important;
+  margin-bottom: 8px !important;
+}
+
+.contacts-page-title {
+  color: #f4f1ff !important;
+  font-size: clamp(1.8rem, 3vw, 2.25rem) !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.8px !important;
+}
+
+.contacts-page-subtitle {
+  color: #9290a5 !important;
+  font-size: 0.92rem !important;
+  margin-top: 8px !important;
+  line-height: 1.6 !important;
+}
+
+.contacts-organization-cell {
+  min-width: 150px;
+}
+
+.contacts-organization-name {
+  color: #d8d2f0 !important;
+  font-size: 0.84rem !important;
+  font-weight: 700 !important;
+}
+
+.contacts-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.contacts-section-title {
+  color: #f1eff8 !important;
+  font-size: 1.12rem !important;
+  font-weight: 750 !important;
+}
+
+.contacts-section-description {
+  color: #858398 !important;
+  font-size: 0.83rem !important;
+  margin-top: 5px !important;
+}
+
+.contact-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.contact-metric-card,
+.contacts-filter-card,
+.contacts-table-card {
+  background: linear-gradient(
+    145deg,
+    rgba(29, 28, 43, 0.98),
+    rgba(21, 21, 33, 0.98)
+  ) !important;
+  border: 1px solid rgba(160, 151, 204, 0.12) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12) !important;
+}
+
+.contact-metric-card .MuiCardContent-root {
+  padding: 20px !important;
+}
+
+.contact-metric-card .MuiCardContent-root:last-child {
+  padding-bottom: 20px !important;
+}
+
+.contact-metric-top {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 17px;
+}
+
+.contact-metric-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+}
+
+.contact-metric-value {
+  color: #f5f2ff !important;
+  font-size: 1.85rem !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.7px !important;
+}
+
+.contact-metric-title {
+  color: #d6d2e4 !important;
+  font-size: 0.88rem !important;
+  font-weight: 650 !important;
+  margin-top: 5px !important;
+}
+
+.contact-metric-description {
+  color: #858398 !important;
+  font-size: 0.75rem !important;
+  margin-top: 5px !important;
+}
+
+.contacts-filter-card .MuiCardContent-root {
+  padding: 16px !important;
+}
+
+.contacts-filter-card .MuiCardContent-root:last-child {
+  padding-bottom: 16px !important;
+}
+
+.contacts-filter-content {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.contacts-search-field {
+  flex: 1 1 280px;
+  min-width: 220px;
+}
+
+.contacts-filter-select {
+  flex: 0 1 180px;
+  min-width: 150px;
+}
+
+.contacts-search-field .MuiOutlinedInput-root,
+.contacts-filter-select .MuiOutlinedInput-root {
+  color: #eeeaf8;
+  background: rgba(255, 255, 255, 0.025);
+  border-radius: 9px;
+}
+
+.contacts-search-field .MuiOutlinedInput-notchedOutline,
+.contacts-filter-select .MuiOutlinedInput-notchedOutline {
+  border-color: rgba(160, 151, 204, 0.2);
+}
+
+.contacts-search-field .MuiInputLabel-root,
+.contacts-filter-select .MuiInputLabel-root {
+  color: #9995aa;
+}
+
+.contacts-search-field .MuiSvgIcon-root,
+.contacts-filter-select .MuiSvgIcon-root {
+  color: #a9a4bd;
+}
+
+.contacts-clear-button {
+  color: #b6aaff !important;
+  text-transform: none !important;
+  font-weight: 650 !important;
+}
+
+.contacts-job-count-chip {
+  color: #bcb1ff !important;
+  background: rgba(169, 154, 255, 0.1) !important;
+  border: 1px solid rgba(169, 154, 255, 0.2) !important;
+}
+
+.contacts-table-card {
+  overflow: hidden;
+}
+
+.contacts-table {
+  min-width: 950px;
+}
+
+.contacts-table .MuiTableHead-root {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.contacts-table .MuiTableCell-head {
+  color: #a7a2b9 !important;
+  font-size: 0.72rem !important;
+  font-weight: 750 !important;
+  letter-spacing: 0.45px;
+  text-transform: uppercase;
+  border-bottom: 1px solid rgba(160, 151, 204, 0.15);
+  padding: 15px 16px;
+}
+
+.contacts-table .MuiTableCell-body {
+  color: #e9e5f4;
+  font-size: 0.82rem;
+  border-bottom: 1px solid rgba(160, 151, 204, 0.09);
+  padding: 15px 16px;
+}
+
+.contacts-table .MuiTableRow-root:hover {
+  background: rgba(169, 154, 255, 0.035);
+}
+
+.contacts-person-cell {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 210px;
+}
+
+.contacts-person-avatar {
+  width: 36px !important;
+  height: 36px !important;
+  color: #b7aaff !important;
+  background: rgba(169, 154, 255, 0.13) !important;
+}
+
+.contacts-person-name,
+.contacts-job-name {
+  color: #eeeaf8 !important;
+  font-size: 0.83rem !important;
+  font-weight: 700 !important;
+}
+
+.contacts-person-value,
+.contacts-job-company,
+.contacts-location,
+.contacts-date {
+  color: #9290a5 !important;
+  font-size: 0.75rem !important;
+  margin-top: 4px !important;
+}
+
+.contacts-person-value {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contacts-job-cell {
+  min-width: 160px;
+}
+
+.contact-type-chip {
+  color: #c1b5ff !important;
+  background: rgba(169, 154, 255, 0.1) !important;
+  border: 1px solid rgba(169, 154, 255, 0.2) !important;
+  font-size: 0.7rem !important;
+  font-weight: 650 !important;
+}
+
+.contact-type-chip .MuiChip-icon {
+  color: #b4a6ff !important;
+  margin-left: 7px;
+}
+
+.contact-verified-chip {
+  color: #72d9aa !important;
+  background: rgba(101, 214, 165, 0.1) !important;
+  border: 1px solid rgba(101, 214, 165, 0.2) !important;
+  font-size: 0.7rem !important;
+}
+
+.contact-unverified-chip {
+  color: #f2c477 !important;
+  background: rgba(245, 185, 95, 0.1) !important;
+  border: 1px solid rgba(245, 185, 95, 0.2) !important;
+  font-size: 0.7rem !important;
+}
+
+.contacts-loading,
+.contacts-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-height: 300px;
+  padding: 30px;
+  text-align: center;
+}
+
+.contacts-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 58px;
+  color: #b2a5ff;
+  background: rgba(169, 154, 255, 0.12);
+  border-radius: 17px;
+  margin-bottom: 4px;
+}
+
+.contacts-loading .MuiCircularProgress-root {
+  color: #aa9aff;
+}
+
+.contacts-loading .MuiTypography-root,
+.contacts-empty .MuiTypography-body1 {
+  color: #9290a5;
+}
+
+.contacts-alert {
+  border-radius: 10px !important;
+}
+
+.contacts-table-card .MuiTablePagination-root {
+  color: #a9a4b9;
+  border-top: 1px solid rgba(160, 151, 204, 0.1);
+}
+
+.contacts-table-card .MuiTablePagination-selectIcon,
+.contacts-table-card .MuiTablePagination-actions button {
+  color: #b8b1cb;
+}
+
+.contacts-table-card .MuiTablePagination-actions button.Mui-disabled {
+  color: #555264;
+}
+
+/* Contact details dialog */
+
+.contact-details-dialog {
+  color: #eeeaf8 !important;
+  background: #1d1c2b !important;
+  border: 1px solid rgba(160, 151, 204, 0.18);
+  border-radius: 16px !important;
+}
+
+.contact-details-dialog .MuiDialogTitle-root {
+  padding: 22px 24px;
+}
+
+.contact-details-dialog .MuiDialogContent-root {
+  border-color: rgba(160, 151, 204, 0.13);
+  padding: 22px 24px;
+}
+
+.contact-details-dialog .MuiDialogActions-root {
+  padding: 16px 24px 20px;
+}
+
+.contact-dialog-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.contact-dialog-eyebrow {
+  color: #a99aff !important;
+  font-size: 0.68rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 1.3px !important;
+}
+
+.contact-dialog-title {
+  color: #f5f2ff !important;
+  font-size: 1.3rem !important;
+  font-weight: 750 !important;
+  margin-top: 5px !important;
+}
+
+.contact-dialog-heading .MuiIconButton-root {
+  color: #a9a4b9;
+}
+
+.contact-detail-identity {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.contact-detail-avatar {
+  width: 48px !important;
+  height: 48px !important;
+  color: #b8aaff !important;
+  background: rgba(169, 154, 255, 0.14) !important;
+}
+
+.contact-detail-name {
+  color: #f3efff !important;
+  font-size: 0.95rem !important;
+  font-weight: 750 !important;
+}
+
+.contact-detail-value {
+  color: #aaa5bb !important;
+  font-size: 0.82rem !important;
+  margin-top: 5px !important;
+  overflow-wrap: anywhere;
+}
+
+.contact-detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.contact-detail-row > .MuiTypography-root {
+  color: #aaa5bb;
+  font-size: 0.82rem;
+}
+
+.contact-job-panel {
+  padding: 17px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(160, 151, 204, 0.13);
+  border-radius: 12px;
+}
+
+.contact-job-panel-label {
+  color: #a99aff !important;
+  font-size: 0.67rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 1.2px !important;
+  margin-bottom: 10px !important;
+}
+
+.contact-job-title {
+  color: #f1edff !important;
+  font-size: 0.95rem !important;
+  font-weight: 750 !important;
+}
+
+.contact-job-company,
+.contact-job-location {
+  color: #aaa5bb !important;
+  font-size: 0.8rem !important;
+  margin-top: 5px !important;
+}
+
+.contact-application-link {
+  margin-top: 12px !important;
+  padding-left: 0 !important;
+  color: #b7aaff !important;
+  text-transform: none !important;
+}
+
+@media (max-width: 1100px) {
+  .contact-metrics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .recruiter-contacts-page {
+    gap: 22px;
+  }
+
+  .contacts-page-heading,
+  .contacts-results-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .contacts-page-heading > .MuiButton-root {
+    align-self: flex-start;
+  }
+
+  .contact-metrics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .contact-metric-card .MuiCardContent-root {
+    padding: 15px !important;
+  }
+
+  .contact-metric-value {
+    font-size: 1.5rem !important;
+  }
+
+  .contacts-filter-content {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .contacts-search-field,
+  .contacts-filter-select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .contacts-clear-button {
+    align-self: flex-start;
+  }
+}
+
+@media (max-width: 380px) {
+  .contact-metrics-grid {
+    grid-template-columns: 1fr;
+  }
+}
