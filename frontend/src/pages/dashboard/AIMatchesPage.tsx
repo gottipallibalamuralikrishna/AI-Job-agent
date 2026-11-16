@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import InfiniteScroll from "../../components/InfiniteScroll";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   Alert,
@@ -7,24 +8,15 @@ import {
   Card,
   CardContent,
   CircularProgress,
-  FormControl,
-  InputAdornment,
-  InputLabel,
-  MenuItem,
-  Select,
   Stack,
-  TextField,
   Typography,
 } from "@mui/material";
 
 import {
   AlertCircle,
-  ArrowDownWideNarrow,
   BrainCircuit,
   CheckCircle2,
-  CircleHelp,
   RefreshCw,
-  Search,
   Sparkles,
   Target,
   TrendingUp,
@@ -37,9 +29,9 @@ import {
 } from "../../api/jobMatchesApi";
 
 import MatchJobCard from "../../components/matches/MatchJobCard";
+import CollectionSummary from "../../components/matches/CollectionSummary";
 import MatchDetailsDialog from "../../components/matches/MatchDetailsDialog";
 
-type DecisionFilter = "all" | "matched" | "not_matched";
 
 const PAGE_SIZE = 100;
 
@@ -84,10 +76,6 @@ export default function AIMatchesPage() {
   const [matches, setMatches] = useState<JobMatch[]>([]);
   const [selectedMatch, setSelectedMatch] = useState<JobMatch | null>(null);
 
-  const [search, setSearch] = useState("");
-  const [decisionFilter, setDecisionFilter] = useState<DecisionFilter>("all");
-  const [minimumScore, setMinimumScore] = useState<number>(0);
-  const [sortOrder, setSortOrder] = useState("highest");
 
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -99,8 +87,10 @@ export default function AIMatchesPage() {
 
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
+  const latestMatchesRequest = useRef(0);
 
   const loadMatches = useCallback(async (pageNumber = 1) => {
+    const requestId = ++latestMatchesRequest.current;
     try {
       if (pageNumber === 1) {
         setLoading(true);
@@ -114,6 +104,7 @@ export default function AIMatchesPage() {
         page: pageNumber,
         page_size: PAGE_SIZE,
       });
+      if (requestId !== latestMatchesRequest.current) return;
 
       if (pageNumber === 1) {
         setMatches(data);
@@ -131,6 +122,7 @@ export default function AIMatchesPage() {
       setPage(pageNumber);
       setHasMore(data.length === PAGE_SIZE);
     } catch (err: unknown) {
+      if (requestId !== latestMatchesRequest.current) return;
       let message = "Unable to load AI matches.";
 
       if (typeof err === "object" && err !== null && "response" in err) {
@@ -147,8 +139,10 @@ export default function AIMatchesPage() {
 
       setError(message);
     } finally {
-      setLoading(false);
-      setLoadingMore(false);
+      if (requestId === latestMatchesRequest.current) {
+        setLoading(false);
+        setLoadingMore(false);
+      }
     }
   }, []);
 
@@ -188,33 +182,6 @@ export default function AIMatchesPage() {
       setAnalyzing(false);
     }
   };
-
-  const visibleMatches = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
-
-    let result = matches.filter((match) => {
-      const matchesSearch =
-        !normalizedSearch ||
-        match.job.title.toLowerCase().includes(normalizedSearch) ||
-        match.job.company_name.toLowerCase().includes(normalizedSearch) ||
-        (match.job.location ?? "").toLowerCase().includes(normalizedSearch);
-
-      const matchesDecision =
-        decisionFilter === "all" || match.decision === decisionFilter;
-
-      const matchesScore = match.match_score >= minimumScore;
-
-      return matchesSearch && matchesDecision && matchesScore;
-    });
-
-    result = [...result].sort((a, b) => {
-      return sortOrder === "highest"
-        ? b.match_score - a.match_score
-        : a.match_score - b.match_score;
-    });
-
-    return result;
-  }, [matches, search, decisionFilter, minimumScore, sortOrder]);
 
   const matchedCount = matches.filter(
     (item) => item.decision === "matched",
@@ -311,6 +278,8 @@ export default function AIMatchesPage() {
         </Alert>
       )}
 
+      <CollectionSummary />
+
       {/* Matching summary */}
       <Box className="matches-section">
         <Box className="matches-section-heading">
@@ -369,8 +338,7 @@ export default function AIMatchesPage() {
             </Typography>
 
             <Typography className="matches-section-description">
-              {visibleMatches.length} results displayed from {matches.length}{" "}
-              loaded records
+              {matches.length} results loaded
             </Typography>
           </Box>
 
@@ -380,81 +348,6 @@ export default function AIMatchesPage() {
           </Box>
         </Box>
 
-        {/* Filters */}
-        <Card className="matches-filter-card">
-          <CardContent className="matches-filter-content">
-            <TextField
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search job title, company or location..."
-              size="small"
-              className="matches-search-field"
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search size={17} />
-                  </InputAdornment>
-                ),
-              }}
-            />
-
-            <FormControl size="small" className="matches-filter-select">
-              <InputLabel>Match status</InputLabel>
-
-              <Select
-                value={decisionFilter}
-                label="Match status"
-                onChange={(event) =>
-                  setDecisionFilter(event.target.value as DecisionFilter)
-                }
-              >
-                <MenuItem value="all">All results</MenuItem>
-                <MenuItem value="matched">Matched ({matchedCount})</MenuItem>
-                <MenuItem value="not_matched">
-                  Not matched ({notMatchedCount})
-                </MenuItem>
-              </Select>
-            </FormControl>
-
-            <FormControl size="small" className="matches-filter-select">
-              <InputLabel>Minimum score</InputLabel>
-
-              <Select
-                value={minimumScore}
-                label="Minimum score"
-                onChange={(event) =>
-                  setMinimumScore(Number(event.target.value))
-                }
-              >
-                <MenuItem value={0}>Any score</MenuItem>
-                <MenuItem value={50}>50% or higher</MenuItem>
-                <MenuItem value={70}>70% or higher</MenuItem>
-                <MenuItem value={85}>85% or higher</MenuItem>
-                <MenuItem value={90}>90% or higher</MenuItem>
-              </Select>
-            </FormControl>
-
-            <FormControl size="small" className="matches-filter-select">
-              <InputLabel>Sort by score</InputLabel>
-
-              <Select
-                value={sortOrder}
-                label="Sort by score"
-                onChange={(event) => setSortOrder(event.target.value)}
-                startAdornment={
-                  <InputAdornment position="start">
-                    <ArrowDownWideNarrow size={15} />
-                  </InputAdornment>
-                }
-              >
-                <MenuItem value="highest">Highest first</MenuItem>
-                <MenuItem value="lowest">Lowest first</MenuItem>
-              </Select>
-            </FormControl>
-          </CardContent>
-        </Card>
-
-        {/* Loading */}
         {loading && (
           <Box className="matches-loading">
             <CircularProgress />
@@ -498,65 +391,25 @@ export default function AIMatchesPage() {
           </Card>
         )}
 
-        {/* No filtered results */}
-        {!loading && matches.length > 0 && visibleMatches.length === 0 && (
-          <Card className="matches-empty-card">
-            <CardContent className="matches-empty-content">
-              <CircleHelp size={30} color="#9d8cff" />
-
-              <Typography fontWeight={700}>
-                No matching results found
-              </Typography>
-
-              <Typography color="text.secondary" variant="body2">
-                Try changing your search or filters.
-              </Typography>
-
-              <Button
-                variant="outlined"
-                onClick={() => {
-                  setSearch("");
-                  setDecisionFilter("all");
-                  setMinimumScore(0);
-                }}
-              >
-                Clear filters
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Match cards */}
-        {!loading && visibleMatches.length > 0 && (
+        {!loading && matches.length > 0 && (
           <Box className="matches-jobs-grid">
-            {visibleMatches.map((match) => (
+            {matches.map((match) => (
               <MatchJobCard
                 key={match.id}
                 match={match}
                 onViewDetails={setSelectedMatch}
+                onApplied={(jobId) => {
+                  setMatches((items) => items.filter((item) => item.job.id !== jobId));
+                  void loadMatches(1);
+                }}
               />
             ))}
           </Box>
         )}
 
-        {hasMore && !loading && (
-          <Box className="matches-load-more">
-            <Button
-              variant="outlined"
-              onClick={handleLoadMore}
-              disabled={loadingMore}
-              startIcon={
-                loadingMore ? (
-                  <CircularProgress size={15} />
-                ) : (
-                  <ArrowDownWideNarrow size={16} />
-                )
-              }
-            >
-              {loadingMore ? "Loading..." : "Load more matches"}
-            </Button>
-          </Box>
-        )}
+        <InfiniteScroll hasMore={hasMore && !loading} loading={loadingMore}
+          error={Boolean(error) && hasMore} onLoad={handleLoadMore} />
 
         {!hasMore && matches.length > 0 && (
           <Typography className="matches-end-message">

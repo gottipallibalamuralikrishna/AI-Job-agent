@@ -192,7 +192,8 @@
 }
 
 .contacts-table {
-  min-width: 950px;
+  min-width: 820px;
+  table-layout: fixed;
 }
 
 .contacts-table .MuiTableHead-root {
@@ -206,14 +207,17 @@
   letter-spacing: 0.45px;
   text-transform: uppercase;
   border-bottom: 1px solid rgba(160, 151, 204, 0.15);
-  padding: 15px 16px;
+  padding: 10px 12px;
+  white-space: nowrap;
 }
 
 .contacts-table .MuiTableCell-body {
   color: #e9e5f4;
   font-size: 0.82rem;
   border-bottom: 1px solid rgba(160, 151, 204, 0.09);
-  padding: 15px 16px;
+  padding: 8px 12px;
+  height: 52px;
+  vertical-align: middle;
 }
 
 .contacts-table .MuiTableRow-root:hover {
@@ -224,12 +228,13 @@
   display: flex;
   align-items: center;
   gap: 11px;
-  min-width: 210px;
+  min-width: 0;
 }
 
 .contacts-person-avatar {
-  width: 36px !important;
-  height: 36px !important;
+  width: 28px !important;
+  height: 28px !important;
+  flex-shrink: 0;
   color: #b7aaff !important;
   background: rgba(169, 154, 255, 0.13) !important;
 }
@@ -250,15 +255,24 @@
   margin-top: 4px !important;
 }
 
-.contacts-person-value {
-  max-width: 220px;
+.contacts-table :is(.contacts-person-value, .contacts-person-name, .contacts-organization-name, .contacts-job-name, .contacts-location) {
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .contacts-job-cell {
-  min-width: 160px;
+  min-width: 0;
+}
+
+.contacts-table .contacts-person-value,
+.contacts-table .contacts-location {
+  margin-top: 0 !important;
+}
+
+.contacts-table .contacts-organization-cell {
+  min-width: 0;
 }
 
 .contact-type-chip {
@@ -499,6 +513,7 @@
 
   .contacts-search-field,
   .contacts-filter-select {
+    flex: 0 0 auto;
     width: 100%;
     min-width: 0;
   }

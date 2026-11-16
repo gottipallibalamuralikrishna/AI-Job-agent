@@ -9,6 +9,8 @@ from html.parser import HTMLParser
 from urllib.parse import quote, urljoin, urlparse
 from urllib.robotparser import RobotFileParser
 
+import httpx
+
 from app.collectors.base import BaseJobCollector
 from app.services.job_location import applicant_locations
 
@@ -106,24 +108,37 @@ class CareerPageCollector(BaseJobCollector):
         raise ValueError("Too many redirects")
 
     def fetch_jobs(self, source):
-        start = (source.source_url or "").replace("{query}", quote(self.query, safe=""))
+        template = source.source_url or ""
+        starts = [template]
+        if "{query}" in template:
+            starts = [template.replace("{query}", quote(query, safe=""))
+                      for query in getattr(self, "queries", [self.query])]
+        start = starts[0]
         origin = urlparse(start)
         robots_url = f"{origin.scheme}://{origin.netloc}/robots.txt"
         robots = RobotFileParser()
         # Fail closed when robots cannot be fetched, rather than bypassing blocks.
         robots.parse(self._get(robots_url).splitlines())
-        pending, visited, jobs = [start], set(), {}
+        pending, visited, jobs = starts.copy(), set(), {}
+        first_error = None
         while pending and len(visited) < self.MAX_PAGES:
             url = pending.pop(0)
             if url in visited:
                 continue
             visited.add(url)
             if not robots.can_fetch("JobPilotAI", url):
-                if url == start:
-                    raise RuntimeError("Source disallows automated collection")
+                if url in starts and first_error is None:
+                    first_error = RuntimeError("Source disallows automated collection")
                 continue
             page = PostingPage()
-            page.feed(self._get(url))
+            try:
+                page.feed(self._get(url))
+            except httpx.HTTPStatusError as exc:
+                if len(starts) == 1 or exc.response.status_code in {401, 403, 429}:
+                    raise
+                if first_error is None:
+                    first_error = exc
+                continue
             for script in page.scripts:
                 for item in postings(script):
                     job = normalize_posting(item, url, source.name)
@@ -136,5 +151,7 @@ class CareerPageCollector(BaseJobCollector):
                     if link not in pending and len(pending) < 100:
                         pending.append(link)
         if not jobs:
+            if first_error is not None:
+                raise first_error
             raise RuntimeError("No public JobPosting data found; source may require JavaScript, login, or an authorized feed")
         return list(jobs.values())

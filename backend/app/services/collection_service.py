@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import delete, select, text
 
 from app.core.config import settings
+from app.collectors.himalayas import SEARCH_URL, SOURCE_ID as HIMALAYAS_SOURCE_ID
 from app.db.session import SessionLocal, engine
 from app.models.collection_run import CollectionRun
 from app.models.job import Job
@@ -51,12 +52,17 @@ def enqueue_primary(db, user_id, run_key=None):
 
 
 def cleanup_expired(db, now=None):
-    cutoff = (now or datetime.now(timezone.utc)) - timedelta(days=settings.job_retention_days)
+    now = now or datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=settings.job_retention_days)
     # FK SET NULL preserves HR contacts and their immutable job snapshots.
-    old_ids = select(Job.id).where(Job.created_at <= cutoff)
+    himalayas_sources = select(JobSource.id).where(JobSource.external_source_id == HIMALAYAS_SOURCE_ID)
+    expired = (Job.created_at <= cutoff) | (
+        Job.source_id.in_(himalayas_sources) & (Job.expires_at <= now)
+    )
+    old_ids = select(Job.id).where(expired)
     matches = db.execute(delete(JobMatch).where(
         (JobMatch.job_id.in_(old_ids)) | (JobMatch.created_at <= cutoff))).rowcount
-    jobs = db.execute(delete(Job).where(Job.created_at <= cutoff)).rowcount
+    jobs = db.execute(delete(Job).where(expired)).rowcount
     db.execute(delete(CollectionRun).where(CollectionRun.finished_at <= cutoff))
     db.commit()
     return {"jobs_deleted": jobs, "matches_deleted": matches}
@@ -93,6 +99,9 @@ def tick():
             with SessionLocal() as db:
                 now = datetime.now(timezone.utc)
                 cleanup_expired(db, now)
+                if not db.query(JobSource).filter_by(external_source_id=HIMALAYAS_SOURCE_ID).first():
+                    db.add(JobSource(name="Himalayas", source_type="api", source_url=SEARCH_URL,
+                                     external_source_id=HIMALAYAS_SOURCE_ID))
                 for name, url in BOARD_SOURCES.items():
                     if not db.query(JobSource).filter_by(external_source_id=f"builtin:{name}").first():
                         db.add(JobSource(name=name, source_type="career_page", source_url=url,
@@ -115,7 +124,7 @@ def tick():
                     sources = db.query(JobSource).filter(JobSource.is_active.is_(True)).all()
                     results = []
                     for source in sources:
-                        if source.source_type not in JobIngestionService.COLLECTORS:
+                        if JobIngestionService.collector_for(source) is None:
                             continue
                         source_id, name = source.id, source.name
                         try:

@@ -8,6 +8,7 @@ import {
 } from "react";
 
 import { authApi } from "../api/auth.api";
+import { isAxiosError } from "axios";
 import { setAccessToken } from "../api/axios";
 
 import type { User, LoginPayload, RegisterPayload } from "../types/auth";
@@ -15,6 +16,8 @@ import type { User, LoginPayload, RegisterPayload } from "../types/auth";
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
+  sessionUnavailable: boolean;
+  retrySession: () => void;
   login: (payload: LoginPayload) => Promise<void>;
   register: (payload: RegisterPayload) => Promise<void>;
   logout: () => Promise<void>;
@@ -25,6 +28,8 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessionUnavailable, setSessionUnavailable] = useState(false);
+  const [sessionAttempt, setSessionAttempt] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -38,10 +43,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAccessToken(result.access_token);
         setUser(result.user);
       } catch (error) {
-        setAccessToken(null);
-
         if (active) {
-          setUser(null);
+          if (isAxiosError(error) && error.response?.status === 401) {
+            setAccessToken(null);
+            setUser(null);
+          } else {
+            setSessionUnavailable(true);
+          }
         }
       } finally {
         if (active) {
@@ -55,15 +63,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [sessionAttempt]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
       loading,
+      sessionUnavailable,
+      retrySession: () => {
+        setSessionUnavailable(false);
+        setLoading(true);
+        setSessionAttempt((attempt) => attempt + 1);
+      },
 
       login: async (payload) => {
         const result = await authApi.login(payload);
+        setSessionUnavailable(false);
 
         setAccessToken(result.access_token);
         setUser(result.user);
@@ -82,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       },
     }),
-    [user, loading],
+    [user, loading, sessionUnavailable],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

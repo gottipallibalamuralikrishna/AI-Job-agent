@@ -5,7 +5,6 @@ import {
   Card,
   CardContent,
   Chip,
-  Divider,
   Typography,
 } from "@mui/material";
 
@@ -19,11 +18,11 @@ import {
 } from "lucide-react";
 
 import type { JobMatch } from "../../api/jobMatchesApi";
-import MatchScoreBreakdown from "./MatchScoreBreakdown";
 
 interface MatchJobCardProps {
   match: JobMatch;
   onViewDetails: (match: JobMatch) => void;
+  onApplied: (jobId: string) => void;
 }
 
 function getScoreColor(score: number) {
@@ -72,6 +71,7 @@ function formatPostedDate(value: string | null) {
 export default function MatchJobCard({
   match,
   onViewDetails,
+  onApplied,
 }: MatchJobCardProps) {
   const job = match.job;
   const scoreColor = getScoreColor(match.match_score);
@@ -117,10 +117,10 @@ export default function MatchJobCard({
             </Box>
           )}
 
-          <Box>
+          {(job.experience_min != null || job.experience_max != null) && <Box>
             <BriefcaseBusiness size={13} />
             <Typography>{formatExperience(match)}</Typography>
-          </Box>
+          </Box>}
 
           {job.work_mode && (
             <Box>
@@ -131,7 +131,8 @@ export default function MatchJobCard({
         </Box>
 
         <Box className="match-status-row">
-          {job.remote_eligible_locations?.length > 0 && (
+          {job.remote_eligible_locations?.length > 0 &&
+            !job.remote_eligible_locations.every((location) => job.location?.toLowerCase().includes(location.toLowerCase())) && (
             <Typography variant="caption" color="text.secondary">
               Applicant locations: {job.remote_eligible_locations.join(", ")}
             </Typography>
@@ -152,79 +153,24 @@ export default function MatchJobCard({
               Posted {formatPostedDate(job.posted_at)}
             </Typography>
           )}
-        </Box>
-
-        <Divider className="match-card-divider" />
-
-        <Typography className="match-section-label">
-          COMPATIBILITY BREAKDOWN
-        </Typography>
-
-        <MatchScoreBreakdown
-          roleScore={match.role_match_score}
-          skillScore={match.skill_match_score}
-          experienceScore={match.experience_match_score}
-          responsibilityScore={match.responsibility_match_score}
-        />
-
-        <Divider className="match-card-divider" />
-
-        <Box className="match-skills-section">
-          <Typography className="match-section-label">
-            MATCHED SKILLS ({match.matched_skills.length})
-          </Typography>
-
-          <Box className="match-skill-list">
-            {match.matched_skills.length > 0 ? (
-              match.matched_skills
-                .slice(0, 6)
-                .map((skill) => (
-                  <Chip
-                    key={skill}
-                    label={skill}
-                    size="small"
-                    className="matched-skill-chip"
-                  />
-                ))
-            ) : (
-              <Typography className="match-muted-text">
-                No matched skills identified.
-              </Typography>
-            )}
-          </Box>
-
-          {match.missing_skills.length > 0 && (
-            <>
-              <Typography className="match-section-label missing-label">
-                MISSING SKILLS
-              </Typography>
-
-              <Box className="match-skill-list">
-                {match.missing_skills.slice(0, 4).map((skill) => (
-                  <Chip
-                    key={skill}
-                    label={skill}
-                    size="small"
-                    className="missing-skill-chip"
-                  />
-                ))}
-              </Box>
-            </>
+          {job.source_message_url === "https://himalayas.app/" && (
+            <Typography component="a" variant="caption" className="match-source-link"
+              href={job.source_message_url} target="_blank" rel="noopener noreferrer">
+              Himalayas
+            </Typography>
           )}
         </Box>
 
-        {match.match_explanation && (
-          <Box className="match-explanation">
-            <Typography className="match-section-label">
-              MATCH INSIGHT
-            </Typography>
-
-            <Typography>{match.match_explanation}</Typography>
+        {match.matched_skills.length > 0 && (
+          <Box className="match-skill-list match-card-skill-preview">
+            {match.matched_skills.slice(0, 3).map((skill) => (
+              <Chip key={skill} label={skill} size="small" className="matched-skill-chip" />
+            ))}
           </Box>
         )}
 
         <Box className="match-card-actions">
-          <MarkAppliedButton jobId={job.id} />
+          <MarkAppliedButton jobId={job.id} onApplied={onApplied} />
           <Button
             variant="outlined"
             onClick={() => onViewDetails(match)}

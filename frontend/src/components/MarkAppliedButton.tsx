@@ -1,14 +1,26 @@
 import { useEffect, useState } from "react";
 import { Alert, Button } from "@mui/material";
 import { api } from "../api/axios";
-export default function MarkAppliedButton({ jobId }: { jobId: string }) {
+export default function MarkAppliedButton({ jobId, onApplied }: {
+  jobId: string;
+  onApplied?: (jobId: string) => void;
+}) {
   const [applied, setApplied] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  useEffect(() => { api.get<{job_id: string}[]>("/applications").then(({data}) => setApplied(data.some(a => a.job_id === jobId))).catch(() => setError("Unable to check application status.")); }, [jobId]);
+  useEffect(() => {
+    if (onApplied) return; // AI Matches already excludes applied jobs.
+    api.get<{job_id: string}[]>("/applications")
+      .then(({ data }) => setApplied(data.some((application) => application.job_id === jobId)))
+      .catch(() => setError("Unable to check application status."));
+  }, [jobId, onApplied]);
   return <><Button variant="outlined" disabled={applied || busy} onClick={async () => {
     setBusy(true); setError("");
-    try { await api.put(`/applications/${jobId}`); setApplied(true); }
+    try {
+      await api.put(`/applications/${jobId}`);
+      setApplied(true);
+      onApplied?.(jobId);
+    }
     catch { setError("Unable to save application. Please retry."); }
     finally { setBusy(false); }
   }}>{applied ? "Applied" : busy ? "Saving?" : "Mark as applied"}</Button>{error && <Alert severity="error">{error}</Alert>}</>;

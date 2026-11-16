@@ -33,6 +33,15 @@ from app.models.user import User
 router = APIRouter(prefix="/resumes", tags=["Resumes"])
 
 
+@router.delete("/{resume_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_resume(
+    resume_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> None:
+    ResumeService(db).delete_resume(resume_id, current_user)
+
+
 @router.put("/{resume_id}/primary", response_model=ResumeResponse)
 def select_primary_resume(resume_id: UUID, db: Session = Depends(get_db),
                           current_user: User = Depends(get_current_user)):

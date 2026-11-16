@@ -12,8 +12,7 @@ export const authApi = {
     return data;
   },
   async refresh(): Promise<AuthResponse> {
-    const { data } = await api.post<AuthResponse>('/auth/refresh');
-    setAccessToken(data.access_token);
+    const { data } = await api.post<AuthResponse>('/auth/refresh', undefined, { timeout: 12000 });
     return data;
   },
   async me(): Promise<User> {

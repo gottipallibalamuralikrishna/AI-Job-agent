@@ -18,6 +18,7 @@ export interface MatchedJob {
   description: string | null;
   required_skills: string[];
   application_url: string | null;
+  source_message_url?: string | null;
   posted_at: string | null;
   is_active: boolean;
 }
