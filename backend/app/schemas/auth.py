@@ -19,6 +19,8 @@ class UserResponse(BaseModel):
     full_name: str
     email: EmailStr
     is_active: bool
+    preferred_job_country: str | None = None
+    include_international_remote: bool = False
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 

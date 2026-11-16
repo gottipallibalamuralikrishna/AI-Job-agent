@@ -10,6 +10,7 @@ from app.models.resume import Resume
 from app.models.resume_profile import ResumeProfile
 from app.models.user import User
 from app.services.job_matching_service import JobMatchingService
+from app.services.job_location import matches_job_location
 
 
 class JobMatchService:
@@ -51,6 +52,7 @@ class JobMatchService:
                 ResumeProfile.user_id == current_user.id,
                 Resume.user_id == current_user.id,
                 Resume.parsing_status == "parsed",
+                Resume.is_primary.is_(True),
             )
             .order_by(
                 Resume.is_primary.desc(),
@@ -102,6 +104,12 @@ class JobMatchService:
             )
             .first()
         )
+
+        if result["match_score"] <= 80 or not matches_job_location(job, current_user.preferred_job_country, current_user.include_international_remote):
+            if existing_match:
+                self.db.delete(existing_match)
+                self.db.commit()
+            raise HTTPException(status_code=422, detail="Job must score above 80 and satisfy your country preference")
 
         # 5. Prepare all matching results for database persistence.
         match_values = {
@@ -193,8 +201,8 @@ class JobMatchService:
     ) -> list[JobMatch]:
 
         # Only return matches belonging to the authenticated user.
-        query = self.db.query(JobMatch).filter(
-            JobMatch.user_id == current_user.id
+        query = self.db.query(JobMatch).join(Resume, Resume.id == JobMatch.resume_id).filter(
+            JobMatch.user_id == current_user.id, Resume.is_primary.is_(True)
         )
 
         # Filter matched jobs
@@ -263,6 +271,7 @@ class JobMatchService:
                 ResumeProfile.user_id == current_user.id,
                 Resume.user_id == current_user.id,
                 Resume.parsing_status == "parsed",
+                Resume.is_primary.is_(True),
             )
             .order_by(
                 Resume.is_primary.desc(),
@@ -443,6 +452,13 @@ class JobMatchService:
                     match_values = self._build_match_values(result)
 
                     existing_match = match_by_job_id.get(job.id)
+
+                    if result["match_score"] <= 80 or not matches_job_location(job, current_user.preferred_job_country, current_user.include_international_remote):
+                        if existing_match:
+                            self.db.delete(existing_match)
+                        batch_processed += 1
+                        batch_not_matched += 1
+                        continue
 
                     if existing_match:
 

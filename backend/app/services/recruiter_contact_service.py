@@ -1,7 +1,7 @@
 from math import ceil
 from uuid import UUID
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.job import Job
@@ -23,15 +23,15 @@ class RecruiterContactService:
     ):
         query = (
             select(JobContact)
-            .join(Job, JobContact.job_id == Job.id)
-            .join(JobSource, Job.source_id == JobSource.id)
+            .outerjoin(Job, JobContact.job_id == Job.id)
+            .outerjoin(JobSource, Job.source_id == JobSource.id)
             .options(joinedload(JobContact.job))
         )
 
         count_query = (
             select(func.count(JobContact.id))
-            .join(Job, JobContact.job_id == Job.id)
-            .join(JobSource, Job.source_id == JobSource.id)
+            .outerjoin(Job, JobContact.job_id == Job.id)
+            .outerjoin(JobSource, Job.source_id == JobSource.id)
         )
 
         if search:
@@ -41,6 +41,8 @@ class RecruiterContactService:
                 JobContact.contact_name.ilike(term),
                 Job.title.ilike(term),
                 Job.company_name.ilike(term),
+                JobContact.job_snapshot["title"].astext.ilike(term),
+                JobContact.job_snapshot["company_name"].astext.ilike(term),
             )
             query = query.where(condition)
             count_query = count_query.where(condition)
@@ -52,9 +54,9 @@ class RecruiterContactService:
             )
 
         if source_type:
-            query = query.where(JobSource.source_type == source_type)
+            query = query.where(func.coalesce(JobContact.source_type, JobSource.source_type) == source_type)
             count_query = count_query.where(
-                JobSource.source_type == source_type
+                func.coalesce(JobContact.source_type, JobSource.source_type) == source_type
             )
 
         if job_id:
@@ -118,7 +120,8 @@ class RecruiterContactService:
                 counts[contact_type] = count
 
         jobs_with_contacts = db.scalar(
-            select(func.count(func.distinct(JobContact.job_id)))
+            select(func.count(func.distinct(func.coalesce(
+                cast(JobContact.job_id, String), JobContact.job_snapshot["id"].astext))))
         ) or 0
 
         return {

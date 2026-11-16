@@ -1,6 +1,43 @@
 # JobPilot AI
 
-A full-stack AI job discovery and resume-matching platform. This repository currently implements **Phase 1: foundation and authentication**.
+A full-stack AI job discovery and resume-matching platform with resume extraction, source collection, and recruiter contacts.
+
+## Resume-driven collection
+
+- Select **Use as primary** in Resume Profile. The first uploaded resume is primary automatically; migration selects a suitable existing resume for legacy accounts.
+- Extracting a profile queues collection against the user's **primary parsed resume** after extraction succeeds. **Collect matching jobs** also starts a run manually.
+- Collectors score candidates before storing jobs. Only scores **strictly greater than 80** are saved, with job details, application URLs, and user/resume-specific match results. Matching uses the existing local weighted rules engine; Gemini extracts the resume profile.
+- Collection respects the user's persisted `preferred_job_country`. For India, explicit India locations and recognised Indian cities qualify. With `include_international_remote` enabled, overseas fully remote jobs also qualify when the posting explicitly accepts applicants in India or worldwide. Structured applicant-location requirements are retained with the job; country-restricted and unspecified remote eligibility are excluded. The same policy applies to employer feeds, career pages, Telegram, imported postings, and resume reanalysis.
+- Collection runs daily at **08:00 Asia/Kolkata**, using active configured sources for each active user's primary profile. Startup after 08:00 catches up that day's run. The backend must remain running for scheduled execution; PostgreSQL records the queue and prevents duplicate daily runs across API workers.
+- Duplicate jobs are identified by normalized title, company and location. A database unique index and transaction locks prevent repeated or concurrent collection from adding another job or match record. Existing duplicate jobs are consolidated by migration while preserving HR contacts and the latest result per user/resume.
+- Telegram uses the same **score > 80** filter before saving jobs. It reads all messages in the daily window instead of only the newest 100, and extends the window back to the previous successful fetch after downtime. `TELEGRAM_LOOKBACK_HOURS=24` sets the minimum re-scan window. Reposts are deduplicated; failed ingestion leaves the fetch checkpoint unchanged so the next run can retry.
+- The worker checks the queue every 30 seconds. Interrupted runs retry after restart, and source failures do not stop other sources. Latest status and per-source results appear under Resume Profile and at `GET /api/v1/collections`.
+- Jobs and match records expire **30 days after creation/first extraction**, even if a later collection sees the same job again. Cleanup runs with the worker. Resumes, profiles, accounts, job sources, and HR contacts remain. Contacts retain a snapshot of the job and application link when the job is deleted.
+
+Apply the new database migration before restarting the backend:
+
+```powershell
+cd backend
+.\venv\Scripts\python.exe -m alembic upgrade head
+```
+
+Configuration: `COLLECTION_ENABLED=true`, `COLLECTION_TIMEZONE=Asia/Kolkata`, `JOB_RETENTION_DAYS=30`. Set `COLLECTION_ENABLED=false` to disable the background worker, including cleanup. Windows installations need the `tzdata` dependency for the IANA timezone database.
+
+### Career pages and job boards
+
+Greenhouse, Lever, RSS, and Telegram collectors remain available. Configure employer career pages as `career_page` sources using the existing `/api/v1/job-sources` API. Public career pages are parsed for Schema.org `JobPosting` JSON-LD, following up to 12 same-site job links. `{query}` in a source URL is replaced with the primary resume's professional title.
+
+The worker registers public search-page attempts for Naukri, LinkedIn, Indeed, Hirist Tech, Foundit, and Instahyre. This is **best-effort public-page support**, not a guaranteed integration with those platforms. Login, JavaScript-only rendering, robots restrictions, HTTP blocks, and missing structured postings are reported as source failures. There is no CAPTCHA/login bypass. Authorized feeds or accessible employer career sources are needed where public collection is unavailable. Disable any unwanted source through the existing job-sources API.
+
+`python -m scripts.collect_india_jobs --user-id UUID` registers and collects the verified employer feeds used for India discovery. `--import-file PATH --skip-employers` imports full Indeed records retrieved through Firecrawl, with the same scoring, country filtering, and deduplication. Firecrawl's Codex connection is available to the chat; connecting it does not supply API credentials to the backend. Imported Indeed records are snapshots; unattended daily Indeed refresh is not configured. Public discovery files are stored locally under `backend/private_storage/discovery/` and excluded from Git.
+
+Collection verification (the PostgreSQL tests create and remove isolated test schemas):
+
+```powershell
+cd backend
+$env:TEST_POSTGRES='1'
+.\venv\Scripts\python.exe -m pytest tests/test_collection_flow.py -q
+```
 
 ## Stack
 - Frontend: React, TypeScript, Vite, Material UI, Axios, React Router

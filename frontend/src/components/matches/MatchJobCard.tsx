@@ -1,3 +1,4 @@
+import MarkAppliedButton from "../MarkAppliedButton";
 import {
   Box,
   Button,
@@ -130,6 +131,11 @@ export default function MatchJobCard({
         </Box>
 
         <Box className="match-status-row">
+          {job.remote_eligible_locations?.length > 0 && (
+            <Typography variant="caption" color="text.secondary">
+              Applicant locations: {job.remote_eligible_locations.join(", ")}
+            </Typography>
+          )}
           <Chip
             size="small"
             label={
@@ -218,6 +224,7 @@ export default function MatchJobCard({
         )}
 
         <Box className="match-card-actions">
+          <MarkAppliedButton jobId={job.id} />
           <Button
             variant="outlined"
             onClick={() => onViewDetails(match)}

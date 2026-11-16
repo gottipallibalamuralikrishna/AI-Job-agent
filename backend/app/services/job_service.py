@@ -5,7 +5,8 @@ import re
 import uuid
 
 from fastapi import HTTPException, status
-from sqlalchemy import or_
+from sqlalchemy import or_, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.job import Job
@@ -42,6 +43,11 @@ class JobService:
         return hashlib.sha256(
             raw_value.encode("utf-8")
         ).hexdigest()
+
+    def lock_job_hash(self, job_hash: str) -> None:
+        # Serialize the same normalized job across API and background ingestion.
+        key = int.from_bytes(bytes.fromhex(job_hash)[:8], "big", signed=True)
+        self.db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": key})
 
     def create_job(self, payload: JobCreate) -> Job:
 
@@ -83,6 +89,7 @@ class JobService:
             company_name=data["company_name"],
             location=data.get("location"),
         )
+        self.lock_job_hash(job_hash)
 
         existing_hash = (
             self.db.query(Job)
@@ -107,6 +114,9 @@ class JobService:
             self.db.commit()
             self.db.refresh(job)
 
+        except IntegrityError as exc:
+            self.db.rollback()
+            raise HTTPException(status_code=409, detail="This job already exists") from exc
         except Exception:
             self.db.rollback()
             raise
@@ -334,6 +344,7 @@ class JobService:
             new_company,
             new_location,
         )
+        self.lock_job_hash(new_hash)
 
         duplicate = (
             self.db.query(Job)

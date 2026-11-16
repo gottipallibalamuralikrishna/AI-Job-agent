@@ -1,3 +1,4 @@
+import MarkAppliedButton from "../../components/MarkAppliedButton";
 import { useEffect, useState } from "react";
 import {
   Alert,
@@ -129,7 +130,9 @@ function JobDetailsDialog({
             <Chip icon={<MapPin size={14} />} label={job.location} />
           )}
 
+          <MarkAppliedButton jobId={job.id} />
           {job.work_mode && <Chip label={job.work_mode} />}
+          {job.remote_eligible_locations?.length > 0 && <Chip label={`Applicant locations: ${job.remote_eligible_locations.join(", ")}`} />}
 
           {job.employment_type && <Chip label={job.employment_type} />}
         </Stack>

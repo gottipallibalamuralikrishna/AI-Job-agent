@@ -17,6 +17,7 @@ class JobSummaryResponse(BaseModel):
     location: str | None = None
     employment_type: str | None = None
     work_mode: str | None = None
+    remote_eligible_locations: list[str] = Field(default_factory=list)
 
     experience_min: int | None = None
     experience_max: int | None = None

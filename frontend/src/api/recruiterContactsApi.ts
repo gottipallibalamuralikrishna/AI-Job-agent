@@ -24,12 +24,12 @@ export interface ContactJobSummary {
   company_name: string;
   location: string | null;
   application_url: string | null;
-  source_id: string;
+  source_id: string | null;
 }
 
 export interface RecruiterContact {
   id: string;
-  job_id: string;
+  job_id: string | null;
   contact_type: ContactType;
   contact_value: string;
   contact_name: string | null;

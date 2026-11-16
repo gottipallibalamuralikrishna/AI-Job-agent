@@ -178,6 +178,11 @@ class ProfileExtractionService:
 
             self.db.refresh(profile)
 
+            # Collection runs asynchronously against the user's primary resume.
+            from app.services.collection_service import enqueue_primary
+            enqueue_primary(self.db, current_user.id)
+            self.db.commit()
+
             # ----------------------------------------
             # 8. Total execution time
             # ----------------------------------------

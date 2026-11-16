@@ -1,3 +1,4 @@
+import ApplicationsPage from "./pages/dashboard/ApplicationsPage";
 import { Navigate, Route, Routes } from "react-router-dom";
 import AIMatchesPage from "./pages/dashboard/AIMatchesPage";
 import LoginPage from "./pages/auth/LoginPage";
@@ -29,11 +30,6 @@ const modules = [
     description: "Your saved jobs.",
   },
   {
-    path: "applications",
-    title: "Applications",
-    description: "Track your applications.",
-  },
-  {
     path: "assistant",
     title: "AI Assistant",
     description: "Your job search assistant.",
@@ -61,6 +57,7 @@ export default function App() {
           <Route path="contacts" element={<RecruiterContactsPage />} />
           <Route path="telegram" element={<TelegramJobsPage />} />
           {/* Real Jobs page */}
+          <Route path="applications" element={<ApplicationsPage />} />
           <Route path="jobs" element={<AllJobsPage />} />
 
           {/* Remaining placeholder modules */}

@@ -3,6 +3,7 @@ from html import unescape
 from typing import Any
 
 from app.collectors.base import BaseJobCollector
+from app.services.job_location import applicant_locations, infer_work_mode
 
 
 class GreenhouseCollector(BaseJobCollector):
@@ -32,6 +33,11 @@ class GreenhouseCollector(BaseJobCollector):
             departments = item.get("departments") or []
 
             description = item.get("content") or ""
+            remote_locations = []
+            for field in item.get("metadata") or []:
+                name = field.get("name", "").lower()
+                if "applicant" in name and "location" in name or "remote" in name and "eligible" in name:
+                    remote_locations.extend(applicant_locations(field.get("value")))
 
             normalized_jobs.append({
                 "external_id": str(item["id"]),
@@ -41,7 +47,8 @@ class GreenhouseCollector(BaseJobCollector):
                 "description": unescape(description),
                 "application_url": item.get("absolute_url"),
                 "employment_type": None,
-                "work_mode": None,
+                "work_mode": infer_work_mode({"title": item.get("title"), "location": location.get("name"), "description": description}),
+                "remote_eligible_locations": remote_locations,
                 "required_skills": [],
                 "department": ", ".join(
                     department.get("name", "")

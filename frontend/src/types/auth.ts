@@ -3,6 +3,8 @@ export interface User {
   full_name: string;
   email: string;
   is_active: boolean;
+  preferred_job_country: string | null;
+  include_international_remote: boolean;
   created_at: string;
 }
 export interface AuthResponse {
