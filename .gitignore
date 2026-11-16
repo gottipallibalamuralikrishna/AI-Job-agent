@@ -16,6 +16,7 @@ venv/
 uploads/
 storage/
 backend/private_storage/discovery/
+backend/private_storage/outreach/
 
 # Frontend
 node_modules/

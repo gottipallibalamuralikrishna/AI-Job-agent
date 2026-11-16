@@ -55,6 +55,7 @@ import {
 } from "../../api/recruiterContactsApi";
 
 import "./recruiter-contacts.css";
+import RecruiterEmailDialog from '../../components/RecruiterEmailDialog';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
@@ -332,12 +333,12 @@ function ContactDetailsDialog({
       </DialogContent>
 
       <DialogActions>
-        {href && (
+        {contact.contact_type === 'email' && <RecruiterEmailDialog contactId={contact.id} />}
+        {href && contact.contact_type !== 'email' && (
           <Button
             component="a"
             href={href}
             target={
-              contact.contact_type === "email" ||
               contact.contact_type === "phone"
                 ? undefined
                 : "_blank"
@@ -346,9 +347,7 @@ function ContactDetailsDialog({
             variant="contained"
             endIcon={<ExternalLink size={15} />}
           >
-            {contact.contact_type === "email"
-              ? "Send email"
-              : contact.contact_type === "phone"
+            {contact.contact_type === "phone"
                 ? "Call contact"
                 : "Open contact"}
           </Button>
@@ -465,6 +464,7 @@ export default function RecruiterContactsPage() {
 
   return (
     <Box className="recruiter-contacts-page">
+      <Box sx={{ mb: 2 }}><RecruiterEmailDialog /></Box>
       <Box className="contacts-page-heading">
         <Box>
           <Typography className="contacts-eyebrow">
