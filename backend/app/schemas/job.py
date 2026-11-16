@@ -32,6 +32,7 @@ class JobBase(BaseModel):
 
     employment_type: EmploymentType | None = None
     work_mode: WorkMode | None = None
+    remote_eligible_locations: list[str] = Field(default_factory=list)
 
     experience_min: int | None = Field(default=None, ge=0)
     experience_max: int | None = Field(default=None, ge=0)
@@ -66,6 +67,7 @@ class JobUpdate(BaseModel):
 
     employment_type: EmploymentType | None = None
     work_mode: WorkMode | None = None
+    remote_eligible_locations: list[str] | None = None
 
     experience_min: int | None = Field(default=None, ge=0)
     experience_max: int | None = Field(default=None, ge=0)

@@ -30,6 +30,11 @@ export const parseResume = async (resumeId: string) => {
   return response.data;
 };
 
+export const selectPrimaryResume = async (resumeId: string): Promise<Resume> => {
+  const response = await api.put<Resume>(`/resumes/${resumeId}/primary`);
+  return response.data;
+};
+
 export const extractResumeProfile = async (resumeId: string) => {
   const response = await api.post(`/resumes/${resumeId}/extract-profile`);
 

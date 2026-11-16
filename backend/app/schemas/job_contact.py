@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 
 ContactType = Literal[
@@ -19,7 +19,7 @@ class JobContactResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
-    job_id: UUID
+    job_id: UUID | None
     contact_type: ContactType
     contact_value: str
     contact_name: str | None = None
@@ -36,11 +36,19 @@ class ContactJobSummary(BaseModel):
     company_name: str
     location: str | None = None
     application_url: str | None = None
-    source_id: UUID
+    source_id: UUID | None = None
 
 
 class RecruiterContactResponse(JobContactResponse):
     job: ContactJobSummary
+
+    @model_validator(mode="before")
+    @classmethod
+    def include_retained_job(cls, value):
+        if not isinstance(value, dict) and value.job is None:
+            return {**{name: getattr(value, name) for name in JobContactResponse.model_fields},
+                    "job": value.job_snapshot}
+        return value
 
 
 class RecruiterContactListResponse(BaseModel):

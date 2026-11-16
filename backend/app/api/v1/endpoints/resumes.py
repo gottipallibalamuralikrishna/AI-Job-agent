@@ -33,6 +33,22 @@ from app.models.user import User
 router = APIRouter(prefix="/resumes", tags=["Resumes"])
 
 
+@router.put("/{resume_id}/primary", response_model=ResumeResponse)
+def select_primary_resume(resume_id: UUID, db: Session = Depends(get_db),
+                          current_user: User = Depends(get_current_user)):
+    # Serialize selection and uploads for a user, even across API workers.
+    db.query(User).filter(User.id == current_user.id).with_for_update().one()
+    resume = db.query(Resume).filter_by(id=resume_id, user_id=current_user.id).first()
+    if resume is None:
+        raise HTTPException(status_code=404, detail="Resume not found")
+    db.query(Resume).filter_by(user_id=current_user.id, is_primary=True).update({"is_primary": False})
+    db.flush()
+    resume.is_primary = True
+    db.commit()
+    db.refresh(resume)
+    return resume
+
+
 @router.post(
     "/upload",
     response_model=ResumeResponse,

@@ -5,7 +5,7 @@ import logging
 import os
 import re
 
-from datetime import timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -495,9 +495,18 @@ class TelegramCollector:
 
         self.session_path = get_session_path()
 
-        self.message_limit = int(
-            os.getenv("TELEGRAM_MESSAGE_LIMIT", "100")
-        )
+        self.lookback_hours = max(1, int(os.getenv("TELEGRAM_LOOKBACK_HOURS", "24")))
+
+    def collection_cutoff(self, source, now=None):
+        now = now or datetime.now(timezone.utc)
+        daily_window = now - timedelta(hours=self.lookback_hours)
+        previous = getattr(source, "last_fetched_at", None)
+        if previous is None:
+            return daily_window
+        if previous.tzinfo is None:
+            previous = previous.replace(tzinfo=timezone.utc)
+        # Re-scan the daily window for other users too; catch up after downtime.
+        return min(daily_window, previous - timedelta(minutes=5))
 
     async def _fetch_messages(self, source) -> list[dict]:
         channel_username = get_channel_username(
@@ -511,6 +520,7 @@ class TelegramCollector:
         )
 
         jobs = []
+        cutoff = self.collection_cutoff(source)
 
         try:
             await client.connect()
@@ -530,8 +540,13 @@ class TelegramCollector:
 
             async for message in client.iter_messages(
                 entity,
-                limit=self.message_limit,
+                limit=None,
             ):
+                message_date = message.date
+                if message_date and message_date.tzinfo is None:
+                    message_date = message_date.replace(tzinfo=timezone.utc)
+                if message_date and message_date < cutoff:
+                    break
                 if not message.message:
                     continue
 

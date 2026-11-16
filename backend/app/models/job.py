@@ -26,7 +26,7 @@ class Job(Base):
     contacts = relationship(
     "JobContact",
     back_populates="job",
-    cascade="all, delete-orphan",
+    cascade="save-update, merge",
     lazy="selectin",
     )
     __tablename__ = "jobs"
@@ -68,7 +68,7 @@ class Job(Base):
         Index("ix_jobs_company_name", "company_name"),
         Index("ix_jobs_location", "location"),
         Index("ix_jobs_posted_at", "posted_at"),
-        Index("ix_jobs_job_hash", "job_hash"),
+        Index("ix_jobs_job_hash", "job_hash", unique=True),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -116,6 +116,10 @@ class Job(Base):
     work_mode: Mapped[str | None] = mapped_column(
         String(20),
         nullable=True,
+    )
+
+    remote_eligible_locations: Mapped[list[str]] = mapped_column(
+        JSONB, default=list, server_default="[]", nullable=False,
     )
 
     experience_min: Mapped[int | None] = mapped_column(

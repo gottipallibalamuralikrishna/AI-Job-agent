@@ -12,12 +12,14 @@ import {
   Typography,
 } from "@mui/material";
 import { CloudUpload, FileText, RefreshCw, Sparkles } from "lucide-react";
+import CollectionStatus from "./CollectionStatus";
 
 import {
   extractResumeProfile,
   getResumes,
   parseResume,
   uploadResume,
+  selectPrimaryResume,
   type Resume,
 } from "../../api/resumeApi";
 
@@ -117,7 +119,8 @@ export default function ResumeUploadSection() {
         }),
       );
 
-      setSuccess("Resume profile generated successfully!");
+      setSuccess("Profile generated. Job collection is queued for your primary resume; only scores above 80 are saved.");
+      await loadResumes();
     } catch (error: unknown) {
       console.error("Resume processing failed:", error);
 
@@ -144,6 +147,7 @@ export default function ResumeUploadSection() {
 
   return (
     <Stack spacing={3}>
+      <CollectionStatus />
       <Card>
         <CardContent>
           <Stack spacing={2}>
@@ -283,6 +287,21 @@ export default function ResumeUploadSection() {
                     </Box>
                   </Box>
 
+                  <Stack direction="row" spacing={1}>
+                  <Button
+                    size="small"
+                    disabled={resume.is_primary || processingId !== null}
+                    onClick={async () => {
+                      try {
+                        await selectPrimaryResume(resume.id);
+                        await loadResumes();
+                      } catch {
+                        setError("Unable to select primary resume.");
+                      }
+                    }}
+                  >
+                    {resume.is_primary ? "Primary resume" : "Use as primary"}
+                  </Button>
                   <Button
                     variant="outlined"
                     size="small"
@@ -297,6 +316,7 @@ export default function ResumeUploadSection() {
                       ? "Processing..."
                       : "Extract Profile"}
                   </Button>
+                  </Stack>
                 </Box>
               ))}
             </Stack>

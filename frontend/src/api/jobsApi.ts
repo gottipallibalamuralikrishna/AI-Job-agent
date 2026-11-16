@@ -10,6 +10,7 @@ export interface Job {
   location: string | null;
   employment_type: string | null;
   work_mode: string | null;
+  remote_eligible_locations: string[];
   experience_min: number | null;
   experience_max: number | null;
   salary_min: number | null;

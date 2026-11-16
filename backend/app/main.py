@@ -1,9 +1,27 @@
 
+from contextlib import asynccontextmanager
+from threading import Event, Thread
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.api.v1.router import api_router
+
+
+@asynccontextmanager
+async def lifespan(app):
+    stop = Event()
+    worker = None
+    if settings.collection_enabled:
+        from app.services.collection_service import worker_loop
+        worker = Thread(target=worker_loop, args=(stop,), daemon=True, name="job-collection")
+        worker.start()
+    yield
+    stop.set()
+    if worker:
+        # Network calls have bounded timeouts; do not block API shutdown.
+        worker.join(timeout=1)
 
 
 # --------------------------------------------------
@@ -14,6 +32,7 @@ app = FastAPI(
     title=settings.app_name,
     description="AI-powered Job Hunting and Resume Management API",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 

@@ -15,6 +15,7 @@ venv/
 *.sqlite3
 uploads/
 storage/
+backend/private_storage/discovery/
 
 # Frontend
 node_modules/

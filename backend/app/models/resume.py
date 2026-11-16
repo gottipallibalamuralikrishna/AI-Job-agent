@@ -7,9 +7,11 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     String,
     Text,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -21,6 +23,7 @@ class Resume(Base):
     __tablename__ = "resumes"
 
     __table_args__ = (
+        Index("uq_resumes_primary_user", "user_id", unique=True, postgresql_where=text("is_primary")),
         CheckConstraint(
             "parsing_status IN ('uploaded', 'processing', 'parsed', 'failed')",
             name="ck_resumes_parsing_status",

@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     telegram_collection_interval_minutes: int = 15
     telegram_channels: str = ""
     auto_match_new_jobs: bool = True
+    collection_enabled: bool = True
+    collection_timezone: str = "Asia/Kolkata"
+    job_retention_days: int = 30
 
     model_config = SettingsConfigDict(
         env_file=".env",

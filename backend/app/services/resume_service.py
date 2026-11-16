@@ -202,6 +202,8 @@ class ResumeService:
             os.replace(temp_path, final_path)
             temp_path = None
 
+            self.db.query(User).filter(User.id == current_user.id).with_for_update().one()
+            has_primary = self.db.query(Resume).filter_by(user_id=current_user.id, is_primary=True).first() is not None
             resume = Resume(
                 user_id=current_user.id,
                 original_filename=original_filename,
@@ -211,7 +213,7 @@ class ResumeService:
                 file_size_bytes=file_size,
                 checksum_sha256=checksum_value,
                 parsing_status="uploaded",
-                is_primary=False,
+                is_primary=not has_primary,
             )
 
             self.db.add(resume)

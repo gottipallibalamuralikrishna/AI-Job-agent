@@ -60,7 +60,7 @@ class JobMatchingService:
         "material ui": ["material ui", "mui"],
         "redux": ["redux", "redux toolkit"],
         "mobx": ["mobx"],
-        "rest api": ["rest api", "restful api", "restful services"],
+        "rest api": ["rest api", "rest apis", "restful api", "restful apis", "restful services"],
         "graphql": ["graphql"],
         "apollo": ["apollo", "apollo client"],
         "vite": ["vite"],
@@ -434,10 +434,13 @@ class JobMatchingService:
         normalized = cls.normalize_text(text)
 
         patterns = [
+            r"(\d+(?:\.\d+)?)\s*(?:-|–|—|to)\s*\d+(?:\.\d+)?\s*(?:years?|yrs?)",
             r"(\d+(?:\.\d+)?)\s*\+\s*years?",
+            r"(\d+(?:\.\d+)?)\s*(?:years?|yrs?)\s*\+",
             r"minimum\s+of\s+(\d+(?:\.\d+)?)\s+years?",
             r"at\s+least\s+(\d+(?:\.\d+)?)\s+years?",
             r"(\d+(?:\.\d+)?)\s+years?\s+of\s+experience",
+            r"(\d+(?:\.\d+)?)\s*(?:years?|yrs?)[’']?\s*(?:experience|professional experience)",
         ]
 
         for pattern in patterns:
@@ -571,6 +574,10 @@ class JobMatchingService:
         required_experience = cls._extract_required_experience(
             minimum_section or description_text
         )
+        if required_experience is None:
+            required_experience = cls._extract_required_experience(description_text)
+        if required_experience is None:
+            required_experience = getattr(job, "experience_min", None)
 
         experience_score = cls._calculate_experience_score(
             profile.get("total_experience_years", 0),

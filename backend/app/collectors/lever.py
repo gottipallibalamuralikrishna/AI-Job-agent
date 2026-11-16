@@ -91,6 +91,9 @@ class LeverCollector(BaseJobCollector):
                 ),
                 "employment_type": employment_type,
                 "work_mode": work_mode,
+                "remote_eligible_locations": [name for name in (item.get("allLocations") or [])
+                    if isinstance(name, str) and name.lower().strip() not in {"remote", "n/a", "hybrid"}]
+                    if work_mode == "remote" else [],
                 "required_skills": [],
                 "department": categories.get("department"),
                 "posted_at": posted_at,
