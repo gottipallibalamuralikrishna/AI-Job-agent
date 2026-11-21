@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState, type ChangeEvent } from "react";
+import InfiniteScroll from "../../components/InfiniteScroll";
+import usePagedFeed from "../../api/usePagedFeed";
+import { useCallback, useEffect, useState } from "react";
 
 import {
   Alert,
@@ -25,7 +27,6 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TablePagination,
   TableRow,
   TextField,
   Typography,
@@ -55,8 +56,8 @@ import {
 } from "../../api/recruiterContactsApi";
 
 import "./recruiter-contacts.css";
+import RecruiterEmailDialog from '../../components/RecruiterEmailDialog';
 
-const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
 const CONTACT_TYPES: {
   label: string;
@@ -332,12 +333,12 @@ function ContactDetailsDialog({
       </DialogContent>
 
       <DialogActions>
-        {href && (
+        {contact.contact_type === 'email' && <RecruiterEmailDialog contactId={contact.id} />}
+        {href && contact.contact_type !== 'email' && (
           <Button
             component="a"
             href={href}
             target={
-              contact.contact_type === "email" ||
               contact.contact_type === "phone"
                 ? undefined
                 : "_blank"
@@ -346,9 +347,7 @@ function ContactDetailsDialog({
             variant="contained"
             endIcon={<ExternalLink size={15} />}
           >
-            {contact.contact_type === "email"
-              ? "Send email"
-              : contact.contact_type === "phone"
+            {contact.contact_type === "phone"
                 ? "Call contact"
                 : "Open contact"}
           </Button>
@@ -363,7 +362,6 @@ function ContactDetailsDialog({
 }
 
 export default function RecruiterContactsPage() {
-  const [contacts, setContacts] = useState<RecruiterContact[]>([]);
   const [stats, setStats] = useState<RecruiterContactStats | null>(null);
   const [selectedContact, setSelectedContact] =
     useState<RecruiterContact | null>(null);
@@ -372,49 +370,22 @@ export default function RecruiterContactsPage() {
   const [contactType, setContactType] = useState<ContactType | "">("");
   const [sourceType, setSourceType] = useState<SourceType | "">("");
 
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
-  const [total, setTotal] = useState(0);
-
-  const [loading, setLoading] = useState(true);
   const [statsLoading, setStatsLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 350);
+    return () => window.clearTimeout(timer);
+  }, [search]);
 
-  const loadContacts = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError("");
-
-      const result = await recruiterContactsApi.getContacts({
-        page: page + 1,
-        page_size: pageSize,
-        search: search.trim(),
-        contact_type: contactType,
-        source_type: sourceType,
-      });
-
-      setContacts(result.items);
-      setTotal(result.total);
-    } catch (err: unknown) {
-      let message = "Unable to load recruiter contacts.";
-
-      if (typeof err === "object" && err !== null && "response" in err) {
-        const response = (
-          err as {
-            response?: {
-              data?: { detail?: string };
-            };
-          }
-        ).response;
-
-        message = response?.data?.detail ?? message;
-      }
-
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  }, [page, pageSize, search, contactType, sourceType]);
+  const fetchPage = useCallback(async (page: number) => {
+    const pageSize = 20;
+    const { items, total } = await recruiterContactsApi.getContacts({
+      page, page_size: pageSize, search: debouncedSearch, contact_type: contactType, source_type: sourceType,
+    });
+    return { items, total, hasMore: page * pageSize < total };
+  }, [debouncedSearch, contactType, sourceType]);
+  const { items: contacts, total, loading: fetching, error, hasMore, loadMore, reload } = usePagedFeed(fetchPage);
+  const loading = fetching && contacts.length === 0;
 
   const loadStats = useCallback(async () => {
     try {
@@ -431,19 +402,11 @@ export default function RecruiterContactsPage() {
   }, []);
 
   useEffect(() => {
-    const timeout = window.setTimeout(() => {
-      void loadContacts();
-    }, 350);
-
-    return () => window.clearTimeout(timeout);
-  }, [loadContacts]);
-
-  useEffect(() => {
     void loadStats();
   }, [loadStats]);
 
   const handleRefresh = () => {
-    void loadContacts();
+    reload();
     void loadStats();
   };
 
@@ -451,20 +414,12 @@ export default function RecruiterContactsPage() {
     setSearch("");
     setContactType("");
     setSourceType("");
-    setPage(0);
-  };
 
-  const handlePageChange = (_event: unknown, newPage: number) => {
-    setPage(newPage);
-  };
-
-  const handlePageSizeChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setPageSize(Number(event.target.value));
-    setPage(0);
   };
 
   return (
     <Box className="recruiter-contacts-page">
+      <Box sx={{ mb: 2 }}><RecruiterEmailDialog /></Box>
       <Box className="contacts-page-heading">
         <Box>
           <Typography className="contacts-eyebrow">
@@ -494,10 +449,9 @@ export default function RecruiterContactsPage() {
       {error && (
         <Alert
           severity="error"
-          onClose={() => setError("")}
           className="contacts-alert"
         >
-          {error}
+          Unable to load recruiter contacts.
         </Alert>
       )}
 
@@ -574,7 +528,7 @@ export default function RecruiterContactsPage() {
               value={search}
               onChange={(event) => {
                 setSearch(event.target.value);
-                setPage(0);
+
               }}
               placeholder="Search email, name, company or job..."
               size="small"
@@ -596,7 +550,7 @@ export default function RecruiterContactsPage() {
                 label="Contact type"
                 onChange={(event) => {
                   setContactType(event.target.value as ContactType | "");
-                  setPage(0);
+
                 }}
               >
                 {CONTACT_TYPES.map((item) => (
@@ -615,7 +569,7 @@ export default function RecruiterContactsPage() {
                 label="Source"
                 onChange={(event) => {
                   setSourceType(event.target.value as SourceType | "");
-                  setPage(0);
+
                 }}
               >
                 {SOURCE_TYPES.map((item) => (
@@ -669,7 +623,16 @@ export default function RecruiterContactsPage() {
           ) : (
             <>
               <TableContainer>
-                <Table className="contacts-table">
+                <Table className="contacts-table" size="small" aria-label="HR contacts">
+                  <colgroup>
+                    <col style={{ width: "24%" }} />
+                    <col style={{ width: "18%" }} />
+                    <col style={{ width: "10%" }} />
+                    <col style={{ width: "17%" }} />
+                    <col style={{ width: "11%" }} />
+                    <col style={{ width: "12%" }} />
+                    <col style={{ width: "8%" }} />
+                  </colgroup>
                   <TableHead>
                     <TableRow>
                       <TableCell>Contact</TableCell>
@@ -678,7 +641,6 @@ export default function RecruiterContactsPage() {
                       <TableCell>Associated job</TableCell>
                       <TableCell>Location</TableCell>
                       <TableCell>Verification</TableCell>
-                      <TableCell>Added</TableCell>
                       <TableCell align="right">Action</TableCell>
                     </TableRow>
                   </TableHead>
@@ -693,7 +655,7 @@ export default function RecruiterContactsPage() {
                             </Avatar>
 
                             <Box minWidth={0}>
-                              <Typography className="contacts-person-name">
+                              <Typography className="contacts-person-name" title={contact.contact_name ?? undefined}>
                                 {contact.contact_name || "Contact"}
                               </Typography>
 
@@ -708,7 +670,7 @@ export default function RecruiterContactsPage() {
                         </TableCell>
                         <TableCell>
                           <Box className="contacts-organization-cell">
-                            <Typography className="contacts-organization-name">
+                            <Typography className="contacts-organization-name" title={contact.job.company_name ?? undefined}>
                               {contact.job.company_name ||
                                 "Organization not identified"}
                             </Typography>
@@ -725,18 +687,15 @@ export default function RecruiterContactsPage() {
 
                         <TableCell>
                           <Box className="contacts-job-cell">
-                            <Typography className="contacts-job-name">
+                            <Typography className="contacts-job-name" title={contact.job.title}>
                               {contact.job.title}
                             </Typography>
 
-                            <Typography className="contacts-job-company">
-                              {contact.job.company_name}
-                            </Typography>
                           </Box>
                         </TableCell>
 
                         <TableCell>
-                          <Typography className="contacts-location">
+                          <Typography className="contacts-location" title={contact.job.location ?? undefined}>
                             {contact.job.location || "—"}
                           </Typography>
                         </TableCell>
@@ -755,12 +714,6 @@ export default function RecruiterContactsPage() {
                           />
                         </TableCell>
 
-                        <TableCell>
-                          <Typography className="contacts-date">
-                            {formatDate(contact.created_at)}
-                          </Typography>
-                        </TableCell>
-
                         <TableCell align="right">
                           <Button
                             size="small"
@@ -776,19 +729,13 @@ export default function RecruiterContactsPage() {
                 </Table>
               </TableContainer>
 
-              <TablePagination
-                component="div"
-                count={total}
-                page={page}
-                onPageChange={handlePageChange}
-                rowsPerPage={pageSize}
-                onRowsPerPageChange={handlePageSizeChange}
-                rowsPerPageOptions={PAGE_SIZE_OPTIONS}
-              />
+
             </>
           )}
         </Card>
       </Box>
+
+      <InfiniteScroll hasMore={hasMore} loading={fetching && !loading} error={error} onLoad={loadMore} />
 
       <ContactDetailsDialog
         contact={selectedContact}

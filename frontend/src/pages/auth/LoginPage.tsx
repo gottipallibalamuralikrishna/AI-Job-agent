@@ -1,11 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { Alert, Box, Button, Paper, Stack, TextField, Typography } from '@mui/material';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const from = useLocation().state?.from;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -13,7 +14,10 @@ export default function LoginPage() {
 
   async function submit(event: FormEvent) {
     event.preventDefault(); setError(''); setBusy(true);
-    try { await login({ email, password }); navigate('/', { replace: true }); }
+    try {
+      await login({ email, password });
+      navigate(from ?? '/matches', { replace: true });
+    }
     catch (e: unknown) {
       const message = (e as { response?: { data?: { detail?: string } } }).response?.data?.detail;
       setError(message ?? 'Unable to sign in. Check your connection and try again.');

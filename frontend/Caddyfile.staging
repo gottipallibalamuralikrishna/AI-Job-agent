@@ -1,0 +1,14 @@
+{$JOBPILOT_DOMAIN} {
+    @outside not remote_ip {$STAGING_ALLOWED_IP}
+    respond @outside 403
+
+    handle /api/v1/* {
+        reverse_proxy backend:8000
+    }
+
+    handle {
+        root * /srv
+        try_files {path} /index.html
+        file_server
+    }
+}

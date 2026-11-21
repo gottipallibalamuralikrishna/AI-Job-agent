@@ -1,0 +1,62 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: jobpilot
+      POSTGRES_USER: jobpilot
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a random hex database password}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jobpilot -d jobpilot"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    environment:
+      ENVIRONMENT: staging
+      DATABASE_URL: postgresql+psycopg://jobpilot:${POSTGRES_PASSWORD}@db:5432/jobpilot
+      SECRET_KEY: ${SECRET_KEY:?Set a fresh random signing secret}
+      FRONTEND_ORIGIN: https://${JOBPILOT_DOMAIN:?Set a staging hostname}
+      COOKIE_SECURE: "true"
+      COLLECTION_ENABLED: ${COLLECTION_ENABLED:-false}
+      COLLECTION_TIMEZONE: Asia/Kolkata
+      OUTREACH_ENABLED: ${OUTREACH_ENABLED:-false}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      TELEGRAM_API_ID: ${TELEGRAM_API_ID:-0}
+      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH:-}
+    volumes:
+      - private-storage:/app/private_storage
+      - telegram-session:/app/telegram_sessions
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["sh", "-ec", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.staging
+    environment:
+      JOBPILOT_DOMAIN: ${JOBPILOT_DOMAIN:?Set a staging hostname}
+      STAGING_ALLOWED_IP: ${STAGING_ALLOWED_IP:?Set your trusted public IP or CIDR}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  private-storage:
+  telegram-session:
+  caddy-data:
+  caddy-config:

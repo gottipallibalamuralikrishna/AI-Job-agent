@@ -16,6 +16,11 @@ venv/
 uploads/
 storage/
 backend/private_storage/discovery/
+backend/private_storage/outreach/
+/artifacts/
+backend/private_storage/resumes/
+*.session
+*.session-journal
 
 # Frontend
 node_modules/

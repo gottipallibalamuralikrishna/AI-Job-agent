@@ -4,6 +4,7 @@ import asyncio
 import logging
 import os
 import re
+from types import SimpleNamespace
 
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -125,13 +126,13 @@ def extract_labelled_value(
 ) -> str | None:
     for label in labels:
         pattern = (
-            rf"(?im)^\s*{re.escape(label)}\s*[:\-]\s*(.+?)\s*$"
+            rf"(?im)^[^\w\n]*{re.escape(label)}[ \t*]*[:\-][ \t*]*(.+?)[ \t*]*$"
         )
 
         match = re.search(pattern, text)
 
         if match:
-            return match.group(1).strip()[:250]
+            return match.group(1).strip(" \t*")[:250] or None
 
     return None
 
@@ -247,6 +248,25 @@ def extract_employment_type(text: str) -> str | None:
     return None
 
 
+def compact_job_fields(text: str) -> dict | None:
+    """Recognize title / company, location / LinkedIn job-link posts."""
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    if len(lines) != 3 or not 5 <= len(lines[0]) <= 140:
+        return None
+    if not any(role in lines[0].lower() for role in ROLE_KEYWORDS):
+        return None
+    parsed = urlparse(lines[2])
+    host = (parsed.hostname or "").lower()
+    if (parsed.scheme not in {"http", "https"}
+            or not (host == "linkedin.com" or host.endswith(".linkedin.com"))
+            or not re.fullmatch(r"/jobs/view/[^/]+/?", parsed.path)):
+        return None
+    company, separator, location = lines[1].partition(",")
+    if not separator or not company.strip() or not location.strip():
+        return None
+    return {"title": lines[0], "company_name": company.strip(), "location": location.strip()}
+
+
 def is_job_post(text: str) -> bool:
     normalized = text.lower()
 
@@ -258,7 +278,7 @@ def is_job_post(text: str) -> bool:
         role in normalized for role in ROLE_KEYWORDS
     )
 
-    return has_job_keyword and has_role
+    return (has_job_keyword and has_role) or compact_job_fields(text) is not None
 
 
 def normalize_phone(value: str) -> str:
@@ -407,26 +427,44 @@ def extract_contacts(text: str) -> list[dict]:
 def build_job_data(
     message,
     channel_username: str,
+    *,
+    vacancy_title: str | None = None,
+    vacancy_index: int | None = None,
 ) -> dict | None:
     raw_text = message.message
 
-    if not raw_text or not is_job_post(raw_text):
+    if not raw_text or (vacancy_title is None and not is_job_post(raw_text)):
         return None
 
-    title = extract_title(raw_text)
+    title = vacancy_title or extract_title(raw_text)
 
     if not title:
         return None
 
     company = extract_labelled_value(
         raw_text,
-        ["company", "organization", "employer"],
+        ["company", "company name", "organization", "organisation", "employer"],
     ) or "Not specified"
 
     location = extract_labelled_value(
         raw_text,
         ["location", "job location", "work location", "city"],
     )
+    if vacancy_title:
+        if company == "Not specified":
+            parts = re.split(r"(?i)\s+at\s+", title, maxsplit=1)
+            if len(parts) == 2 and parts[1].strip():
+                title, company = parts[0].strip(), parts[1].strip()[:250]
+        if not location:
+            pin = re.search(r"(?m)^\s*📍[ \t]*([^\n|]+)", raw_text)
+            if pin:
+                location = pin.group(1).strip()[:250]
+
+    compact = compact_job_fields(raw_text)
+    if compact:
+        title = compact["title"]
+        company = compact["company_name"]
+        location = compact["location"]
 
     experience_min, experience_max = extract_experience(
         raw_text
@@ -466,6 +504,7 @@ def build_job_data(
     return {
         "external_id": (
             f"telegram:{channel_username}:{message.id}"
+            + (f":{vacancy_index}" if vacancy_index is not None else "")
         ),
         "title": title,
         "company_name": company,
@@ -483,6 +522,32 @@ def build_job_data(
         "is_active": True,
         "contacts": extract_contacts(raw_text),
     }
+
+
+VACANCY_HEADING = re.compile(r"(?m)^[ \t*]*(?:(?:\d\ufe0f?\u20e3)+|\d+[.)])[ \t]+([^\n]+)")
+
+
+def build_message_jobs(message, channel_username: str) -> list[dict]:
+    body = message.message or ""
+    headings = list(VACANCY_HEADING.finditer(body))
+    job_headings = {
+        index for index, heading in enumerate(headings)
+        if any(re.search(r"\b" + re.escape(role) + r"\b", heading[1], re.I) for role in ROLE_KEYWORDS)
+    }
+    if len(headings) < 2 or not job_headings:
+        job = build_job_data(message, channel_username)
+        return [job] if job else []
+    jobs = []
+    for index, heading in enumerate(headings):
+        if index not in job_headings:
+            continue
+        end = headings[index + 1].start() if index + 1 < len(headings) else len(body)
+        vacancy = SimpleNamespace(id=message.id, date=message.date, message=body[heading.start():end])
+        title = heading[1].strip(" *")
+        job = build_job_data(vacancy, channel_username, vacancy_title=title, vacancy_index=index + 1)
+        if job:
+            jobs.append(job)
+    return jobs
 
 
 class TelegramCollector:
@@ -550,13 +615,7 @@ class TelegramCollector:
                 if not message.message:
                     continue
 
-                job_data = build_job_data(
-                    message,
-                    channel_username,
-                )
-
-                if job_data:
-                    jobs.append(job_data)
+                jobs.extend(build_message_jobs(message, channel_username))
 
             logger.info(
                 "Collected %s job messages from @%s",

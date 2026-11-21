@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import InfiniteScroll from "../../components/InfiniteScroll";
+import usePagedFeed from "../../api/usePagedFeed";
+import { useCallback, useEffect, useState } from "react";
 
 import {
   Alert,
@@ -14,7 +16,6 @@ import {
   DialogTitle,
   Divider,
   InputAdornment,
-  Pagination,
   Stack,
   TextField,
   Typography,
@@ -76,6 +77,16 @@ function JobDetailsDialog({
   onClose: () => void;
 }) {
   if (!job) return null;
+
+  const savedLink = job.source_message_url?.trim();
+  const externalPost = job.external_id?.match(/^telegram:([a-z0-9_]+):(\d+)(?::\d+)?$/i);
+  const telegramPostUrl = savedLink && /^https:\/\/t\.me\/[a-z0-9_]+\/\d+\/?$/i.test(savedLink)
+    ? savedLink
+    : externalPost
+      ? `https://t.me/${externalPost[1]}/${externalPost[2]}`
+      : null;
+  const postPath = telegramPostUrl?.match(/^https:\/\/t\.me\/([a-z0-9_]+)\/(\d+)\/?$/i);
+  const telegramAppUrl = postPath ? `tg://resolve?domain=${postPath[1]}&post=${postPath[2]}` : null;
 
   const description =
     stripHtml(job.description) || stripHtml(job.raw_source_text);
@@ -160,7 +171,7 @@ function JobDetailsDialog({
           </>
         )}
 
-        {job.source_message_url && (
+        {telegramPostUrl && (
           <>
             <Divider sx={{ my: 3, borderColor: "#273149" }} />
 
@@ -180,22 +191,17 @@ function JobDetailsDialog({
           Close
         </Button>
 
-        {job.source_message_url && (
+        {telegramPostUrl && (
           <Button
             variant="outlined"
             color="info"
             endIcon={<Send size={16} />}
-            onClick={() =>
-              window.open(
-                job.source_message_url!,
-                "_blank",
-                "noopener,noreferrer",
-              )
-            }
+            href={telegramPostUrl}
           >
-            Telegram Post
+            View Telegram post
           </Button>
         )}
+        {telegramAppUrl && <Button href={telegramAppUrl} color="info">Open Telegram app</Button>}
 
         {job.application_url && (
           <Button
@@ -214,79 +220,21 @@ function JobDetailsDialog({
 }
 
 export default function TelegramJobsPage() {
-  const [jobs, setJobs] = useState<Job[]>([]);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalJobs, setTotalJobs] = useState(0);
-
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
-
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  // Debounce search input.
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setDebouncedSearch(search.trim());
-      setPage(1);
-    }, 400);
-
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 400);
     return () => window.clearTimeout(timer);
   }, [search]);
-
-  // Fetch only Telegram jobs.
-  useEffect(() => {
-    let cancelled = false;
-
-    const fetchTelegramJobs = async () => {
-      try {
-        setLoading(true);
-        setError("");
-
-        const response = await jobsApi.getJobs({
-          page,
-          page_size: PAGE_SIZE,
-          search: debouncedSearch,
-          source_type: "telegram",
-          is_active: true,
-        });
-
-        if (cancelled) return;
-
-        setJobs(response.items ?? []);
-        setTotalJobs(response.total ?? 0);
-        setTotalPages(Math.max(response.total_pages ?? 1, 1));
-      } catch (err: any) {
-        if (cancelled) return;
-
-        setError(
-          err.response?.data?.detail ||
-            "Unable to load Telegram jobs. Please try again.",
-        );
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    void fetchTelegramJobs();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [page, debouncedSearch]);
-
-  const handlePageChange = (
-    _event: React.ChangeEvent<unknown>,
-    value: number,
-  ) => {
-    setPage(value);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
+  const fetchPage = useCallback(async (page: number) => {
+    const { items, total, total_pages } = await jobsApi.getJobs({
+      page, page_size: PAGE_SIZE, search: debouncedSearch, source_type: "telegram", is_active: true,
+    });
+    return { items, total, hasMore: page < total_pages };
+  }, [debouncedSearch]);
+  const { items: jobs, total: totalJobs, loading: fetching, error, hasMore, loadMore } = usePagedFeed(fetchPage);
+  const loading = fetching && jobs.length === 0;
 
   return (
     <Box className="dashboard-content all-jobs-page">
@@ -350,14 +298,14 @@ export default function TelegramJobsPage() {
         <Typography fontWeight={750}>Opportunities from Telegram</Typography>
 
         <Typography variant="caption" color="text.secondary">
-          Page {page} of {totalPages}
+          {jobs.length} jobs loaded
         </Typography>
       </Stack>
 
       {/* Error */}
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
+          Unable to load jobs.
         </Alert>
       )}
 
@@ -512,18 +460,7 @@ export default function TelegramJobsPage() {
         </Box>
       )}
 
-      {/* Pagination */}
-      {!loading && totalPages > 1 && (
-        <Stack alignItems="center" mt={4}>
-          <Pagination
-            count={totalPages}
-            page={page}
-            onChange={handlePageChange}
-            color="primary"
-            shape="rounded"
-          />
-        </Stack>
-      )}
+      <InfiniteScroll hasMore={hasMore} loading={fetching && !loading} error={error} onLoad={loadMore} />
 
       <JobDetailsDialog
         job={selectedJob}

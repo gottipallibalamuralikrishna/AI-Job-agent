@@ -1,5 +1,9 @@
 import { api } from "./axios";
 
+export const deleteResume = async (resumeId: string): Promise<void> => {
+  await api.delete(`/resumes/${resumeId}`);
+};
+
 export interface Resume {
   id: string;
   original_filename: string;

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { isAxiosError } from "axios";
 import {
   Alert,
   Box,
@@ -8,6 +9,11 @@ import {
   Chip,
   CircularProgress,
   Divider,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   Stack,
   Typography,
 } from "@mui/material";
@@ -16,6 +22,7 @@ import CollectionStatus from "./CollectionStatus";
 
 import {
   extractResumeProfile,
+  deleteResume,
   getResumes,
   parseResume,
   uploadResume,
@@ -33,6 +40,30 @@ export default function ResumeUploadSection() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [resumeToDelete, setResumeToDelete] = useState<Resume | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const confirmDelete = async () => {
+    if (!resumeToDelete) return;
+    setDeleting(true);
+    setError("");
+    setSuccess("");
+    setMessage("");
+    try {
+      await deleteResume(resumeToDelete.id);
+      setResumes((items) => items.filter((item) => item.id !== resumeToDelete.id));
+      setResumeToDelete(null);
+      window.dispatchEvent(new Event("resume:deleted"));
+      await loadResumes();
+      setSuccess("Resume deleted.");
+    } catch (error: unknown) {
+      const detail = isAxiosError(error) ? error.response?.data?.detail : undefined;
+      setError(typeof detail === "string" ? detail : "Unable to delete the resume.");
+      setResumeToDelete(null);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const loadResumes = async () => {
     try {
@@ -104,8 +135,12 @@ export default function ResumeUploadSection() {
 
       setProcessingId(resume.id);
 
-      // Step 1: Extract text from PDF/DOCX
-      await parseResume(resume.id);
+      // Reuse parsed text when retrying a temporary AI failure.
+      if (resume.parsing_status !== "parsed") {
+        await parseResume(resume.id);
+        setResumes((items) => items.map((item) => item.id === resume.id
+          ? { ...item, parsing_status: "parsed" } : item));
+      }
 
       // Step 2: Extract candidate profile using Gemini
       await extractResumeProfile(resume.id);
@@ -122,9 +157,8 @@ export default function ResumeUploadSection() {
       setSuccess("Profile generated. Job collection is queued for your primary resume; only scores above 80 are saved.");
       await loadResumes();
     } catch (error: unknown) {
-      console.error("Resume processing failed:", error);
-
-      setError("Unable to process resume. Please try again.");
+      const detail = isAxiosError(error) ? error.response?.data?.detail : undefined;
+      setError(typeof detail === "string" ? detail : "Unable to process resume. Please try again.");
     } finally {
       setProcessingId(null);
     }
@@ -146,7 +180,7 @@ export default function ResumeUploadSection() {
   };
 
   return (
-    <Stack spacing={3}>
+    <Stack spacing={{ xs: 1.5, md: 3 }}>
       <CollectionStatus />
       <Card>
         <CardContent>
@@ -168,7 +202,7 @@ export default function ResumeUploadSection() {
                 border: "1px dashed",
                 borderColor: "divider",
                 borderRadius: 2,
-                p: 4,
+                p: { xs: 1.5, sm: 4 },
                 textAlign: "center",
               }}
             >
@@ -287,7 +321,7 @@ export default function ResumeUploadSection() {
                     </Box>
                   </Box>
 
-                  <Stack direction="row" spacing={1}>
+                  <Stack direction="row" gap={1} flexWrap="wrap">
                   <Button
                     size="small"
                     disabled={resume.is_primary || processingId !== null}
@@ -307,7 +341,7 @@ export default function ResumeUploadSection() {
                     size="small"
                     startIcon={<Sparkles size={16} />}
                     disabled={
-                      processingId === resume.id ||
+                      processingId !== null ||
                       resume.parsing_status === "processing"
                     }
                     onClick={() => handleProcess(resume)}
@@ -316,6 +350,12 @@ export default function ResumeUploadSection() {
                       ? "Processing..."
                       : "Extract Profile"}
                   </Button>
+                  <Button color="error" size="small"
+                    disabled={processingId !== null || resume.parsing_status === "processing"}
+                    onClick={() => setResumeToDelete(resume)}
+                  >
+                    Delete
+                  </Button>
                   </Stack>
                 </Box>
               ))}
@@ -323,6 +363,22 @@ export default function ResumeUploadSection() {
           )}
         </CardContent>
       </Card>
+      <Dialog open={resumeToDelete !== null} onClose={deleting ? undefined : () => setResumeToDelete(null)}
+        aria-labelledby="delete-resume-title" aria-describedby="delete-resume-description">
+        <DialogTitle id="delete-resume-title">Delete resume?</DialogTitle>
+        <DialogContent>
+          <DialogContentText id="delete-resume-description">
+            Delete {resumeToDelete?.original_filename} and its extracted profile, matches, and collection history?
+            {resumeToDelete?.is_primary && " If you have another resume, it will become your primary resume."}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button autoFocus disabled={deleting} onClick={() => setResumeToDelete(null)}>Cancel</Button>
+          <Button color="error" disabled={deleting} onClick={() => void confirmDelete()}>
+            {deleting ? "Deleting…" : "Delete resume"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 }

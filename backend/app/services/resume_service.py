@@ -1,5 +1,6 @@
 
 import hashlib
+import logging
 import os
 import uuid
 import zipfile
@@ -13,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.resume import Resume
+from app.models.resume_profile import ResumeProfile
 from app.models.user import User
 
 
@@ -28,6 +30,43 @@ class ResumeService:
 
     def __init__(self, db: Session):
         self.db = db
+
+    def delete_resume(self, resume_id: uuid.UUID, user: User) -> None:
+        self.db.query(User).filter_by(id=user.id).with_for_update().one()
+        resume = self.db.query(Resume).filter_by(
+            id=resume_id, user_id=user.id,
+        ).with_for_update().first()
+        if resume is None:
+            raise HTTPException(status_code=404, detail="Resume not found")
+        if resume.parsing_status == "processing":
+            raise HTTPException(status_code=409, detail="Wait for resume processing to finish before deleting it.")
+
+        path = Path(resume.storage_path)
+        stored_filename = resume.stored_filename
+        was_primary = resume.is_primary
+        self.db.delete(resume)
+        self.db.flush()
+        if was_primary:
+            replacement = (
+                self.db.query(Resume)
+                .outerjoin(ResumeProfile, ResumeProfile.resume_id == Resume.id)
+                .filter(Resume.user_id == user.id)
+                .order_by(
+                    (ResumeProfile.id.is_not(None) & (Resume.parsing_status == "parsed")).desc(),
+                    Resume.created_at.desc(), Resume.id,
+                )
+                .first()
+            )
+            if replacement is not None:
+                replacement.is_primary = True
+        self.db.commit()
+
+        # Only unlink this upload inside the configured storage directory.
+        try:
+            if path.name == stored_filename and path.resolve().parent == Path(settings.resume_storage_dir).resolve():
+                path.unlink(missing_ok=True)
+        except OSError:
+            logging.getLogger(__name__).warning("Could not remove stored upload for resume %s", resume_id)
 
     def _storage_directory(self) -> Path:
         directory = Path(settings.resume_storage_dir)

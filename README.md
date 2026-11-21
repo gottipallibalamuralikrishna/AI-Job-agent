@@ -1,105 +1,143 @@
-# JobPilot AI
+﻿# JobPilot AI
 
-A full-stack AI job discovery and resume-matching platform with resume extraction, source collection, and recruiter contacts.
+JobPilot is a job search workspace that matches openings against a resume, tracks applications, and helps you contact recruiters. The frontend uses React, TypeScript, Vite, and Material UI. The backend uses FastAPI, SQLAlchemy, Alembic, and PostgreSQL.
 
-## Resume-driven collection
+## 1. Install prerequisites
 
-- Select **Use as primary** in Resume Profile. The first uploaded resume is primary automatically; migration selects a suitable existing resume for legacy accounts.
-- Extracting a profile queues collection against the user's **primary parsed resume** after extraction succeeds. **Collect matching jobs** also starts a run manually.
-- Collectors score candidates before storing jobs. Only scores **strictly greater than 80** are saved, with job details, application URLs, and user/resume-specific match results. Matching uses the existing local weighted rules engine; Gemini extracts the resume profile.
-- Collection respects the user's persisted `preferred_job_country`. For India, explicit India locations and recognised Indian cities qualify. With `include_international_remote` enabled, overseas fully remote jobs also qualify when the posting explicitly accepts applicants in India or worldwide. Structured applicant-location requirements are retained with the job; country-restricted and unspecified remote eligibility are excluded. The same policy applies to employer feeds, career pages, Telegram, imported postings, and resume reanalysis.
-- Collection runs daily at **08:00 Asia/Kolkata**, using active configured sources for each active user's primary profile. Startup after 08:00 catches up that day's run. The backend must remain running for scheduled execution; PostgreSQL records the queue and prevents duplicate daily runs across API workers.
-- Duplicate jobs are identified by normalized title, company and location. A database unique index and transaction locks prevent repeated or concurrent collection from adding another job or match record. Existing duplicate jobs are consolidated by migration while preserving HR contacts and the latest result per user/resume.
-- Telegram uses the same **score > 80** filter before saving jobs. It reads all messages in the daily window instead of only the newest 100, and extends the window back to the previous successful fetch after downtime. `TELEGRAM_LOOKBACK_HOURS=24` sets the minimum re-scan window. Reposts are deduplicated; failed ingestion leaves the fetch checkpoint unchanged so the next run can retry.
-- The worker checks the queue every 30 seconds. Interrupted runs retry after restart, and source failures do not stop other sources. Latest status and per-source results appear under Resume Profile and at `GET /api/v1/collections`.
-- Jobs and match records expire **30 days after creation/first extraction**, even if a later collection sees the same job again. Cleanup runs with the worker. Resumes, profiles, accounts, job sources, and HR contacts remain. Contacts retain a snapshot of the job and application link when the job is deleted.
+- Python 3.12 is recommended. The backend container uses Python 3.12.
+- Node.js 22 and npm are recommended. The staging frontend image uses Node.js 22.
+- PostgreSQL 16 is the version used in staging. For local development, use an existing PostgreSQL server or run one with Docker.
+- A Gemini API key is needed for AI resume profile extraction. Telegram and Gmail credentials are needed only for those integrations.
 
-Apply the new database migration before restarting the backend:
+Run the following commands from the repository root on Windows PowerShell unless otherwise indicated.
+
+## 2. Set up PostgreSQL
+
+Create a database and database user, or use your existing local database. If you need a fresh local database and have Docker running, this command creates a PostgreSQL container with a persistent volume and binds its port to loopback. If port 5432 is already in use, use the existing database or change the host port and update your database URL.
+
+```powershell
+docker run --name jobpilot-db -e POSTGRES_DB=jobpilot -e POSTGRES_USER=jobpilot -e POSTGRES_PASSWORD=jobpilot -p 127.0.0.1:5432:5432 -v jobpilot-local-data:/var/lib/postgresql/data -d postgres:16
+```
+
+Those credentials are for local development only. On subsequent runs, start the existing container with `docker start jobpilot-db`.
+
+## 3. Install backend dependencies and configure the app
 
 ```powershell
 cd backend
+py -3.12 -m venv venv
+.\venv\Scripts\python.exe -m pip install --upgrade pip
+.\venv\Scripts\python.exe -m pip install -r requirements.txt
+if (-not (Test-Path .env)) { Copy-Item ..\.env.example .env }
+```
+
+Use an existing virtual environment if it already has your dependencies installed. If you use a system Python launcher other than `py`, run `python -m venv venv` with your chosen Python interpreter.
+
+Open `backend/.env` and set values for your local setup. The sample database host is `db` for containers. Use `127.0.0.1` when you run FastAPI directly on your machine.
+
+```dotenv
+DATABASE_URL=postgresql+psycopg://jobpilot:jobpilot@127.0.0.1:5432/jobpilot
+SECRET_KEY=replace-this-with-a-random-signing-secret
+FRONTEND_ORIGIN=http://127.0.0.1:5173
+COOKIE_SECURE=false
+GEMINI_API_KEY=
+COLLECTION_ENABLED=true
+COLLECTION_TIMEZONE=Asia/Kolkata
+OUTREACH_ENABLED=false
+```
+
+Generate a signing secret with `.\venv\Scripts\python.exe -c "import secrets; print(secrets.token_hex(32))"` and store it in `backend/.env`. Keep the file and all real credentials private. On Linux or macOS, replace `py -3.12` with `python3.12` and `.\venv\Scripts\python.exe` with `./venv/bin/python`.
+
+## 4. Apply migrations and start the backend
+
+In the backend terminal, wait for PostgreSQL to accept connections, then run:
+
+```powershell
 .\venv\Scripts\python.exe -m alembic upgrade head
+.\venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Configuration: `COLLECTION_ENABLED=true`, `COLLECTION_TIMEZONE=Asia/Kolkata`, `JOB_RETENTION_DAYS=30`. Set `COLLECTION_ENABLED=false` to disable the background worker, including cleanup. Windows installations need the `tzdata` dependency for the IANA timezone database.
+- [Backend health check](http://127.0.0.1:8000/health)
+- [API documentation](http://127.0.0.1:8000/docs)
 
-### Career pages and job boards
+Keep the terminal running. After pulling a change with migrations, run `alembic upgrade head` before restarting the backend.
 
-Greenhouse, Lever, RSS, and Telegram collectors remain available. Configure employer career pages as `career_page` sources using the existing `/api/v1/job-sources` API. Public career pages are parsed for Schema.org `JobPosting` JSON-LD, following up to 12 same-site job links. `{query}` in a source URL is replaced with the primary resume's professional title.
+## 5. Install frontend dependencies and start Vite
 
-The worker registers public search-page attempts for Naukri, LinkedIn, Indeed, Hirist Tech, Foundit, and Instahyre. This is **best-effort public-page support**, not a guaranteed integration with those platforms. Login, JavaScript-only rendering, robots restrictions, HTTP blocks, and missing structured postings are reported as source failures. There is no CAPTCHA/login bypass. Authorized feeds or accessible employer career sources are needed where public collection is unavailable. Disable any unwanted source through the existing job-sources API.
-
-`python -m scripts.collect_india_jobs --user-id UUID` registers and collects the verified employer feeds used for India discovery. `--import-file PATH --skip-employers` imports full Indeed records retrieved through Firecrawl, with the same scoring, country filtering, and deduplication. Firecrawl's Codex connection is available to the chat; connecting it does not supply API credentials to the backend. Imported Indeed records are snapshots; unattended daily Indeed refresh is not configured. Public discovery files are stored locally under `backend/private_storage/discovery/` and excluded from Git.
-
-Collection verification (the PostgreSQL tests create and remove isolated test schemas):
+In a second terminal, from the repository root:
 
 ```powershell
-cd backend
-$env:TEST_POSTGRES='1'
-.\venv\Scripts\python.exe -m pytest tests/test_collection_flow.py -q
-```
-
-## Stack
-- Frontend: React, TypeScript, Vite, Material UI, Axios, React Router
-- Backend: FastAPI, Pydantic, SQLAlchemy, Alembic, PyJWT, Argon2
-- Infrastructure: PostgreSQL, Redis, Docker Compose
-
-## Prerequisites
-- Docker Desktop (recommended for PostgreSQL and Redis)
-- Python 3.12+
-- Node.js 20+
-
-## Start infrastructure and backend
-1. Copy `.env.example` to `.env`.
-2. Change `SECRET_KEY` to a long random value.
-3. Start services: `docker compose up --build -d`.
-4. Apply database migrations:
-   ```bash
-   docker compose exec backend alembic upgrade head
-   ```
-5. API docs: http://localhost:8000/docs
-6. Health check: http://localhost:8000/health
-
-## Start frontend
-```bash
 cd frontend
-npm install
-# Create frontend/.env.local if needed:
-# VITE_API_URL=http://localhost:8000/api/v1
+npm ci
 npm run dev
 ```
-Open http://localhost:5173.
 
-## Authentication endpoints
-- `POST /api/v1/auth/register`
-- `POST /api/v1/auth/login`
-- `POST /api/v1/auth/refresh` (rotates the refresh cookie and issues a new access token)\n- `GET /api/v1/auth/me`
-- `POST /api/v1/auth/logout`
+Open [JobPilot locally](http://127.0.0.1:5173). The public landing page links to registration and sign-in. The Vite server forwards `/api/v1` to the backend on port 8000. Leave `VITE_API_URL` unset for this setup and use the same frontend hostname each time so the browser can reuse its session cookie.
 
-Login returns a short-lived access token and sets a refresh-token cookie. Access tokens are kept in frontend memory, not localStorage. Refresh cookies are HttpOnly and rotated on refresh. For production, add server-side refresh-token persistence/revocation (for example, hashed token records with token-family reuse detection), CSRF protection appropriate to the deployment, and rate limiting.
+Stop the development servers with **Ctrl+C** in their terminals.
 
-## Phase 1 notes
-- User records use UUID primary keys and unique indexed email addresses.
-- Passwords are hashed with Argon2.
-- API routes, service logic, repositories, schemas, models and configuration are separated.
-- Dashboard metrics are intentionally empty until real data connectors are implemented.
-- Redis is provisioned for later Celery work; job collection and AI agents are not part of Phase 1.
+## 6. Use the app
 
-## Development checks
-Backend:
-```bash
-cd backend
-python -m venv .venv
-# activate the environment, then:
-pip install -r requirements.txt
-pytest
+1. Sign in and open **Resume Profile**. Upload a PDF or DOCX up to 5 MB. Set the resume as primary and choose **Extract Profile**.
+2. After extraction, JobPilot queues collection for your primary resume. Choose **Collect matching jobs** to start a run manually. Review the current run and its progress under **Resume Profile** or open the collection summary in **AI Matches**.
+3. JobPilot saves eligible matches scoring **strictly above 80%**. Keyword-based sources can search related roles from the resume title, experience, and skills. JobPilot merges duplicate postings and applies the account's location preferences. Overseas remote roles must explicitly allow applicants from the preferred country or worldwide when international remote matching is enabled.
+4. Choose **Mark as applied** to move a job out of **AI Matches** and into the **Applications** table.
+
+Scheduled collection runs at **8:00 AM IST** while the backend is running. If the backend becomes available later that day, it can catch up. Host the backend on a server that stays running if you need collection while your laptop is off. The default retention is 30 days for collected jobs and matches. HR contacts and application history are retained.
+
+## 7. Configure job sources and Telegram
+
+JobPilot supports Greenhouse, Lever, RSS, public career pages with structured job data, Himalayas, and configured Telegram channels. Manage sources through the API documentation under **Job Sources**. Disabled sources are skipped. Public job-board pages vary in what they expose and may require an official feed or API.
+
+For Telegram, add `TELEGRAM_API_ID` and `TELEGRAM_API_HASH` to `backend/.env`. From the backend folder, authorize the session interactively on the machine that will run collection:
+
+```powershell
+.\venv\Scripts\python.exe -m app.collectors.telegram --login
 ```
-Frontend:
-```bash
-cd frontend
-npm install
+
+Add the public channel URL as a Telegram job source if it is missing. Keep the generated files in `backend/telegram_sessions/` private. `TELEGRAM_LOOKBACK_HOURS` defaults to 24. Telegram jobs use the same location and score checks as the other sources.
+
+## 8. Configure recruiter email
+
+Open **HR Contacts → Email imported recruiters**, or choose **Email recruiter** from a contact's details. Enable the sending worker with `OUTREACH_ENABLED=true` and restart the backend. Connect a personal Gmail account using an app password, which requires Google 2-Step Verification.
+
+Create a template in the app or upload a UTF-8 `.txt` or `.json` file up to 128 KB. Text files start with `Subject: Your subject` followed by the message body. JSON files contain `name`, `subject`, and `body`. Templates support `{recruiter_name}`, `{company}`, and `{sender_name}`.
+
+Select recruiter contacts or enter email addresses manually. Choose whether to attach your primary resume and preview the message before sending. The backend sends individual emails through its queue. Defaults are 100 attempts per rolling 24 hours and 10 seconds between attempts. Preserve the private mail encryption key across deployments if you want to retain an existing Gmail connection.
+
+## 9. Run development checks
+
+From `backend/`:
+
+```powershell
+.\venv\Scripts\python.exe -m pytest tests -q
+# Include database integration tests using isolated schemas.
+$env:TEST_POSTGRES = '1'
+.\venv\Scripts\python.exe -m pytest tests -q
+```
+
+From `frontend/`:
+
+```powershell
 npm run build
+npm run preview
 ```
 
-## Security before production
-Use HTTPS, set `COOKIE_SECURE=true`, rotate secrets, configure a restrictive CORS allowlist, add refresh-token rotation/revocation, rate limiting, audit logging, backups and observability. Do not expose PostgreSQL or Redis publicly.
+The preview server prints its URL. Keep the backend running if you want the preview to load live data.
+
+## 10. Deploy private staging
+
+Follow [the staging guide](STAGING.md) for the Docker Compose setup. It serves the frontend and `/api/v1` on one HTTPS domain and restricts access to a trusted IP or network. It keeps PostgreSQL and private uploads in persistent volumes. Collection and outreach are disabled initially in staging so you can verify the data, credentials, and session before turning the workers on.
+
+Use a clean source bundle for deployment. Keep live environment files, resumes, Telegram sessions, database backups, and mail keys outside Git. If Telegram session files were shared through old Git history, revoke the old session and authorize a fresh one. The current HR directory is shared among signed-in users on the same database, so review access before opening registration publicly.
+
+## Troubleshooting
+
+| Symptom | What to check |
+| --- | --- |
+| Backend cannot connect to PostgreSQL | Check that PostgreSQL is running and that the host, port, credentials, and database match `backend/.env`. |
+| Frontend cannot load data or sign in | Open the backend health check, verify port 8000, and keep the frontend on a consistent hostname. If needed, sign in again after changing hosts or rotating the signing secret. |
+| Resume uploads but profile extraction fails | Verify that the document has readable text and that the Gemini API key is configured. If Gemini is temporarily unavailable, retry extraction once the service recovers. |
+| Job collection does not begin | Confirm the backend worker is enabled, the primary resume has an extracted profile, and active sources are configured. |
+| Telegram source fails | Verify the server's Telegram credentials, session authorization, and access to the configured channel. |
+| No new matches appear | Check the collection summary. A completed run can return zero eligible posts above the score cutoff. |

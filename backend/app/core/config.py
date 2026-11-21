@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     collection_enabled: bool = True
     collection_timezone: str = "Asia/Kolkata"
     job_retention_days: int = 30
+    outreach_enabled: bool = True
+    outreach_daily_limit: int = 100
+    outreach_interval_seconds: int = 10
+    outreach_encryption_key: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",

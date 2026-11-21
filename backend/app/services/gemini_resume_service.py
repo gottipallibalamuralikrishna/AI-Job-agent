@@ -2,6 +2,7 @@
 import logging
 import time
 
+import httpx
 from fastapi import HTTPException, status
 from google import genai
 from google.genai import types
@@ -16,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 MAX_RESUME_CHARS = 40000
 MAX_OUTPUT_TOKENS = 4096
+TRANSIENT_STATUS_CODES = {408, 429, 500, 502, 503, 504}
 
 
 class GeminiResumeService:
@@ -28,7 +30,14 @@ class GeminiResumeService:
             )
 
         self.client = genai.Client(
-            api_key=settings.gemini_api_key
+            api_key=settings.gemini_api_key,
+            http_options=types.HttpOptions(
+                timeout=30_000,
+                retry_options=types.HttpRetryOptions(
+                    attempts=2, initial_delay=1, max_delay=2,
+                    http_status_codes=sorted(TRANSIENT_STATUS_CODES),
+                ),
+            ),
         )
 
 
@@ -116,20 +125,20 @@ class GeminiResumeService:
                     prompt,
                 )
 
-            except errors.ServerError as exc:
-
-                # Only fallback when Gemini returns HTTP 503
+            except (errors.APIError, httpx.TransportError) as exc:
                 if (
-                    getattr(exc, "code", None) != 503
+                    not (isinstance(exc, httpx.TransportError)
+                         or getattr(exc, "code", None) in TRANSIENT_STATUS_CODES)
                     or not fallback_model
                     or fallback_model == primary_model
                 ):
                     raise
 
                 logger.warning(
-                    "Primary model %s unavailable (503). "
+                    "Primary model %s unavailable (%s). "
                     "Switching to fallback model %s.",
                     primary_model,
+                    getattr(exc, "code", type(exc).__name__),
                     fallback_model,
                 )
 
@@ -171,7 +180,7 @@ class GeminiResumeService:
             )
 
         except ValidationError as exc:
-            logger.exception(
+            logger.warning(
                 "Gemini response failed Pydantic validation"
             )
 
@@ -183,8 +192,38 @@ class GeminiResumeService:
         except HTTPException:
             raise
 
+        except errors.APIError as exc:
+            code = getattr(exc, "code", None)
+            logger.warning("Gemini extraction failed: model=%s, status=%s", used_model, code)
+            if code == 429:
+                raise HTTPException(
+                    status_code=429,
+                    detail="The AI service has reached its rate or quota limit. Your resume is saved. Please try again later.",
+                    headers={"Retry-After": "60"},
+                ) from exc
+            if code in TRANSIENT_STATUS_CODES:
+                raise HTTPException(
+                    status_code=503,
+                    detail="The AI service is temporarily busy or unavailable. Your resume is saved. Please try extracting the profile again shortly.",
+                    headers={"Retry-After": "30"},
+                ) from exc
+            if code in {400, 401, 403, 404}:
+                raise HTTPException(
+                    status_code=503,
+                    detail="The AI service configuration needs attention. Check the backend Gemini API key, model, and access settings.",
+                ) from exc
+            raise HTTPException(status_code=502, detail="The AI service could not extract the profile. Please try again.") from exc
+
+        except httpx.TransportError as exc:
+            logger.warning("Gemini connection failed: %s", type(exc).__name__)
+            raise HTTPException(
+                status_code=503,
+                detail="Unable to reach the AI service. Your resume is saved. Please try extracting the profile again shortly.",
+                headers={"Retry-After": "30"},
+            ) from exc
+
         except Exception as exc:
-            logger.exception(
+            logger.warning(
                 "Gemini extraction failed: %s",
                 type(exc).__name__,
             )

@@ -1,5 +1,7 @@
+import InfiniteScroll from "../../components/InfiniteScroll";
+import usePagedFeed from "../../api/usePagedFeed";
 import MarkAppliedButton from "../../components/MarkAppliedButton";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Box,
@@ -12,9 +14,8 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Divider,
   InputAdornment,
-  Pagination,
+  IconButton,
   Stack,
   TextField,
   Typography,
@@ -25,14 +26,18 @@ import {
   MapPin,
   BriefcaseBusiness,
   ExternalLink,
-  Clock3,
   Building2,
-  SlidersHorizontal,
+  X,
 } from "lucide-react";
 
 import { jobsApi, type Job } from "../../api/jobsApi";
 
 const PAGE_SIZE = 12;
+
+function displayCompany(value: string) {
+  const name = value?.trim();
+  return name && !/^(?:not specified|unknown|n\/a)$/i.test(name) ? name : "Company not listed";
+}
 
 function stripHtml(value: string | null): string {
   if (!value) return "";
@@ -120,7 +125,7 @@ function JobDetailsDialog({
         </Typography>
 
         <Typography color="text.secondary" mt={1}>
-          {job.company_name}
+          {displayCompany(job.company_name)}
         </Typography>
       </DialogTitle>
 
@@ -154,7 +159,7 @@ function JobDetailsDialog({
 
         {job.required_skills?.length > 0 && (
           <>
-            <Divider sx={{ my: 3, borderColor: "#273149" }} />
+
 
             <Typography fontWeight={750} mb={1.5}>
               Required skills
@@ -174,6 +179,11 @@ function JobDetailsDialog({
           Close
         </Button>
 
+        {job.source_message_url === "https://himalayas.app/" && (
+          <Button href={job.source_message_url} target="_blank" rel="noopener noreferrer" size="small">
+            Himalayas
+          </Button>
+        )}
         {job.application_url && (
           <Button
             variant="contained"
@@ -191,76 +201,21 @@ function JobDetailsDialog({
 }
 
 export default function AllJobsPage() {
-  const [jobs, setJobs] = useState<Job[]>([]);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalJobs, setTotalJobs] = useState(0);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
-
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  // Debounce search input.
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setDebouncedSearch(search.trim());
-      setPage(1);
-    }, 400);
-
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 400);
     return () => window.clearTimeout(timer);
   }, [search]);
-
-  // Fetch jobs whenever the page or search changes.
-  useEffect(() => {
-    let cancelled = false;
-
-    const fetchJobs = async () => {
-      try {
-        setLoading(true);
-        setError("");
-
-        const response = await jobsApi.getJobs({
-          page,
-          page_size: PAGE_SIZE,
-          search: debouncedSearch,
-          is_active: true,
-        });
-
-        if (cancelled) return;
-
-        setJobs(response.items ?? []);
-        setTotalJobs(response.total ?? 0);
-        setTotalPages(Math.max(response.total_pages ?? 1, 1));
-      } catch (err: any) {
-        if (cancelled) return;
-
-        setError(
-          err.response?.data?.detail ||
-            "Unable to load jobs. Please try again.",
-        );
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    void fetchJobs();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [page, debouncedSearch]);
-
-  const handlePageChange = (
-    _event: React.ChangeEvent<unknown>,
-    value: number,
-  ) => {
-    setPage(value);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
+  const fetchPage = useCallback(async (page: number) => {
+    const { items, total, total_pages } = await jobsApi.getJobs({
+      page, page_size: PAGE_SIZE, search: debouncedSearch, is_active: true,
+    });
+    return { items, total, hasMore: page < total_pages };
+  }, [debouncedSearch]);
+  const { items: jobs, total: totalJobs, loading: fetching, error, hasMore, loadMore } = usePagedFeed(fetchPage);
+  const loading = fetching && jobs.length === 0;
 
   return (
     <Box className="dashboard-content all-jobs-page">
@@ -269,15 +224,15 @@ export default function AllJobsPage() {
         direction={{ xs: "column", sm: "row" }}
         justifyContent="space-between"
         alignItems={{ xs: "flex-start", sm: "center" }}
-        gap={2}
-        mb={3}
+        gap={{ xs: 1, sm: 2 }}
+        mb={{ xs: 1.5, sm: 3 }}
       >
         <Box>
           <Typography variant="h4" fontWeight={800}>
             Explore Jobs
           </Typography>
 
-          <Typography color="text.secondary" mt={0.7}>
+          <Typography color="text.secondary" mt={0.7} sx={{ display: { xs: "none", sm: "block" } }}>
             Discover opportunities collected from your job sources.
           </Typography>
         </Box>
@@ -291,62 +246,50 @@ export default function AllJobsPage() {
       </Stack>
 
       {/* Search */}
-      <Card className="panel-card job-search-panel">
-        <CardContent>
-          <Stack
-            direction={{ xs: "column", sm: "row" }}
-            alignItems="center"
-            gap={2}
-          >
-            <TextField
-              fullWidth
-              placeholder="Search job title, company or keywords..."
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search size={19} />
-                  </InputAdornment>
-                ),
-              }}
-            />
-
-            <Button
-              variant="outlined"
-              color="inherit"
-              startIcon={<SlidersHorizontal size={17} />}
-              onClick={() => {
-                setSearch("");
-                setPage(1);
-              }}
-              sx={{ minWidth: 125, height: 54 }}
-            >
-              Clear
-            </Button>
-          </Stack>
-        </CardContent>
-      </Card>
+      <TextField
+        fullWidth
+        size="small"
+        inputProps={{ "aria-label": "Search jobs" }}
+        placeholder="Search job title, company or keywords..."
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <Search size={19} />
+            </InputAdornment>
+          ),
+          endAdornment: search ? (
+            <InputAdornment position="end">
+              <IconButton size="small" aria-label="Clear search" onClick={() => setSearch("")}>
+                <X size={17} />
+              </IconButton>
+            </InputAdornment>
+          ) : undefined,
+        }}
+      />
 
       {/* Results heading */}
       <Stack
         direction="row"
         alignItems="center"
         justifyContent="space-between"
-        mt={3}
-        mb={2}
+        gap={1}
+        flexWrap="wrap"
+        mt={{ xs: 2, sm: 3 }}
+        mb={{ xs: 1, sm: 2 }}
       >
         <Typography fontWeight={750}>Available opportunities</Typography>
 
         <Typography variant="caption" color="text.secondary">
-          Page {page} of {totalPages}
+          {jobs.length} jobs loaded
         </Typography>
       </Stack>
 
       {/* Error */}
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
+          Unable to load jobs.
         </Alert>
       )}
 
@@ -382,123 +325,35 @@ export default function AllJobsPage() {
             const salary = formatSalary(job);
 
             return (
-              <Card key={job.id} className="job-card panel-card">
-                <CardContent className="job-card-content">
-                  <Stack
-                    direction="row"
-                    justifyContent="space-between"
-                    alignItems="flex-start"
-                    gap={1}
-                  >
+              <Card key={job.id} variant="outlined" className="job-listing-card">
+                <CardContent className="job-listing-content">
+                  <Stack direction="row" alignItems="flex-start" gap={1.5}>
                     <Box className="company-logo">
-                      {job.company_logo ? (
-                        <img
-                          src={job.company_logo}
-                          alt={`${job.company_name} logo`}
-                        />
-                      ) : (
-                        <Building2 size={22} />
-                      )}
+                      {job.company_logo ? <img src={job.company_logo} alt="" /> : <Building2 size={19} aria-hidden="true" />}
                     </Box>
-
-                    <Chip
-                      size="small"
-                      label={job.work_mode || "Not specified"}
-                      variant="outlined"
-                    />
+                    <Box minWidth={0}>
+                      <Typography variant="h6" component="h3" className="job-title">{job.title}</Typography>
+                      <Typography variant="body2" color="text.secondary">{displayCompany(job.company_name)}</Typography>
+                    </Box>
                   </Stack>
-
-                  <Box mt={2}>
-                    <Typography
-                      variant="h6"
-                      fontWeight={750}
-                      className="job-title"
-                    >
-                      {job.title}
-                    </Typography>
-
-                    <Typography color="text.secondary" variant="body2" mt={0.5}>
-                      {job.company_name}
-                    </Typography>
-                  </Box>
-
-                  <Stack direction="row" flexWrap="wrap" gap={1.5} mt={2}>
-                    {job.location && (
-                      <Stack direction="row" alignItems="center" gap={0.5}>
-                        <MapPin size={14} />
-                        <Typography variant="caption" color="text.secondary">
-                          {job.location}
-                        </Typography>
-                      </Stack>
-                    )}
-
-                    {job.employment_type && (
-                      <Stack direction="row" alignItems="center" gap={0.5}>
-                        <BriefcaseBusiness size={14} />
-                        <Typography variant="caption" color="text.secondary">
-                          {job.employment_type}
-                        </Typography>
-                      </Stack>
-                    )}
+                  <Stack direction="row" gap={1.25} flexWrap="wrap" color="text.secondary">
+                    {job.location && <Stack direction="row" gap={0.5} alignItems="center">
+                      <MapPin size={14} aria-hidden="true" /><Typography variant="caption">{job.location}</Typography>
+                    </Stack>}
+                    {[job.work_mode, job.employment_type?.replaceAll("_", " ")].filter(Boolean).map((value) => (
+                      <Typography key={value} variant="caption" sx={{ textTransform: "capitalize" }}>{value}</Typography>
+                    ))}
                   </Stack>
-
-                  {salary && (
-                    <Typography
-                      color="success.main"
-                      variant="body2"
-                      fontWeight={700}
-                      mt={1.5}
-                    >
-                      {salary}
-                    </Typography>
-                  )}
-
-                  <Typography
-                    color="text.secondary"
-                    variant="body2"
-                    className="job-description"
-                    mt={2}
-                  >
-                    {stripHtml(job.description) || "No description available."}
-                  </Typography>
-
-                  {job.required_skills?.length > 0 && (
-                    <Stack direction="row" flexWrap="wrap" gap={0.7} mt={2}>
-                      {job.required_skills.slice(0, 4).map((skill) => (
-                        <Chip
-                          key={skill}
-                          label={skill}
-                          size="small"
-                          variant="outlined"
-                        />
-                      ))}
-                    </Stack>
-                  )}
-
-                  <Box flex={1} />
-
-                  <Divider sx={{ my: 2, borderColor: "#273149" }} />
-
-                  <Stack
-                    direction="row"
-                    alignItems="center"
-                    justifyContent="space-between"
-                    gap={1}
-                  >
-                    <Stack direction="row" alignItems="center" gap={0.6}>
-                      <Clock3 size={14} />
-                      <Typography variant="caption" color="text.secondary">
-                        {formatDate(job.posted_at || job.created_at)}
-                      </Typography>
-                    </Stack>
-
-                    <Button
-                      size="small"
-                      variant="contained"
-                      onClick={() => setSelectedJob(job)}
-                    >
-                      View Details
-                    </Button>
+                  {salary && <Typography variant="body2" color="success.main">{salary}</Typography>}
+                  {job.description && <Typography variant="body2" color="text.secondary" className="job-listing-description">
+                    {stripHtml(job.description)}
+                  </Typography>}
+                  {job.required_skills?.length > 0 && <Stack direction="row" gap={0.75} flexWrap="wrap">
+                    {job.required_skills.slice(0, 3).map((skill) => <Chip key={skill} label={skill} size="small" variant="outlined" />)}
+                  </Stack>}
+                  <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1} sx={{ mt: "auto" }}>
+                    <Typography variant="caption" color="text.secondary">{formatDate(job.posted_at || job.created_at)}</Typography>
+                    <Button size="small" onClick={() => setSelectedJob(job)}>View details</Button>
                   </Stack>
                 </CardContent>
               </Card>
@@ -507,18 +362,7 @@ export default function AllJobsPage() {
         </Box>
       )}
 
-      {/* Pagination */}
-      {!loading && totalPages > 1 && (
-        <Stack alignItems="center" mt={4}>
-          <Pagination
-            count={totalPages}
-            page={page}
-            onChange={handlePageChange}
-            color="primary"
-            shape="rounded"
-          />
-        </Stack>
-      )}
+      <InfiniteScroll hasMore={hasMore} loading={fetching && !loading} error={error} onLoad={loadMore} />
 
       <JobDetailsDialog
         job={selectedJob}

@@ -31,6 +31,7 @@ class JobSummaryResponse(BaseModel):
     required_skills: list[str] = Field(default_factory=list)
 
     application_url: str | None = None
+    source_message_url: str | None = None
     posted_at: datetime | None = None
     is_active: bool
 
