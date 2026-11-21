@@ -1,36 +1,41 @@
-# Environment variables and secrets
+# Environment and deployment
 .env
 .env.*
 !.env.example
+!staging.env.example
+.vercel/
 
 # Python
-__pycache__/
-*.py[cod]
 .venv/
 venv/
+__pycache__/
+*.py[cod]
 .pytest_cache/
+.coverage
+htmlcov/
 
-# Database and local files
-*.db
-*.sqlite3
+# Private data and local databases
+/backend/private_storage/
+/backend/telegram_sessions/
+/artifacts/
 uploads/
 storage/
-backend/private_storage/discovery/
-backend/private_storage/outreach/
-/artifacts/
-backend/private_storage/resumes/
 *.session
 *.session-journal
+*.db
+*.sqlite
+*.sqlite3
+*.dump
 
 # Frontend
 node_modules/
 dist/
 .vite/
+*.tsbuildinfo
 
-# IDE
+# Logs, editors, and OS files
+*.log
 .vscode/
 .idea/
-
-# OS
 .DS_Store
 Thumbs.db
