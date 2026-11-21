@@ -6,6 +6,22 @@
   width: 100%;
 }
 
+.job-listing-card .job-listing-content {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 12px;
+  padding: 14px;
+}
+
+.job-listing-description {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .job-search-panel {
   border-radius: 14px !important;
 }
@@ -210,6 +226,37 @@ body {
   width: 100%;
   min-width: 0;
   flex: 1;
+  container-type: inline-size;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-main .MuiTableContainer-root {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.dashboard-main .MuiPagination-ul {
+  justify-content: center;
+  row-gap: 6px;
+}
+
+.MuiDialog-root .MuiDialogActions-root {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.MuiDialog-root .MuiDialogActions-root > :not(style) ~ :not(style) {
+  margin-left: 0;
+}
+
+.MuiDialog-root .MuiDialogContent-root,
+.resume-profile-page .MuiCard-root {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.recruiter-email-dialog .MuiChip-root {
+  max-width: 100%;
 }
 
 .dashboard-content {
@@ -221,9 +268,14 @@ body {
 }
 
 .dashboard-topbar {
-  background: rgba(14, 20, 34, 0.9) !important;
-  border-bottom: 1px solid rgba(139, 124, 255, 0.12);
-  backdrop-filter: blur(18px);
+  top: 0;
+  z-index: 1100;
+  background: #101827 !important;
+  border-bottom: 1px solid #263249;
+}
+
+html:has(.dashboard-shell) {
+  scrollbar-gutter: stable;
 }
 
 .topbar-toolbar {
@@ -241,7 +293,20 @@ body {
 }
 
 .sidebar-brand {
-  padding-inline: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 16px;
+}
+
+.sidebar-brand .brand-symbol {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #302650;
+  color: #e0d7ff;
 }
 
 .sidebar-nav {
@@ -249,6 +314,17 @@ body {
   min-height: 0;
   overflow-y: auto;
   scrollbar-width: thin;
+  padding: 10px 8px !important;
+}
+
+.sidebar-nav .nav-item {
+  min-height: 44px;
+  padding: 6px 10px;
+}
+
+.sidebar-nav .MuiListItemIcon-root {
+  min-width: 32px;
+  color: inherit;
 }
 
 .nav-item {
@@ -274,6 +350,24 @@ body {
 
 .sidebar-user {
   min-width: 0;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 10px calc(12px + env(safe-area-inset-bottom, 0px));
+}
+
+.sidebar-user .MuiAvatar-root {
+  width: 34px;
+  height: 34px;
+  background: #302650;
+  color: #e0d7ff;
+  font-size: 0.875rem;
+}
+
+.sidebar-user .MuiIconButton-root {
+  width: 36px;
+  height: 36px;
 }
 
 /* ---------- Dashboard Cards ---------- */
@@ -1167,180 +1261,132 @@ body {
    PREMIUM GLOBAL APPLICATION HEADER
    ========================================= */
 
-.dashboard-topbar {
-  position: sticky;
-  top: 0;
-  z-index: 1100;
-  background: rgba(14, 20, 34, 0.96) !important;
-  border-bottom: 1px solid rgba(139, 124, 255, 0.15);
-  backdrop-filter: blur(20px);
+.workspace-header,
+.mobile-header {
+  gap: 12px;
 }
 
-.premium-toolbar {
-  min-height: 88px !important;
-  padding: 12px 30px !important;
-  display: flex;
+.workspace-header {
   justify-content: space-between;
-  gap: 24px;
 }
 
-.topbar-page-info {
+.workspace-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.mobile-header {
+  min-height: 62px !important;
+  padding-inline: 14px !important;
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.mobile-header-mark {
+  display: grid;
+  place-items: center;
+  flex: 0 0 38px;
+  height: 38px;
+  border-radius: 12px;
+  color: #ded6ff;
+  background: #302650;
+}
+
+.mobile-header-title {
   flex: 1;
   min-width: 0;
 }
 
-.topbar-breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 5px;
-}
-
-.topbar-breadcrumb .MuiTypography-root {
-  color: #7887a1;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 1.1px;
-}
-
-.topbar-breadcrumb span {
-  color: #526078;
-  font-size: 11px;
-}
-
-.topbar-breadcrumb .topbar-current-page {
-  color: #b4a5ff;
-}
-
-.topbar-heading {
-  color: #f5f5ff;
-  font-size: 17px !important;
-  font-weight: 750 !important;
-  letter-spacing: -0.35px !important;
-  line-height: 1.4 !important;
-}
-
-.topbar-description {
-  margin-top: 3px !important;
-  color: #8290a8;
-  font-size: 10px !important;
-}
-
-.topbar-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 16px;
-  flex-shrink: 0;
-}
-
-.topbar-search-button {
-  height: 39px;
-  padding: 0 13px !important;
-  border-radius: 10px !important;
-  color: #c5bbff !important;
-  border-color: rgba(139, 124, 255, 0.28) !important;
-  background: rgba(139, 124, 255, 0.055) !important;
-  font-size: 11px !important;
-}
-
-.topbar-search-button:hover {
-  background: rgba(139, 124, 255, 0.13) !important;
-  border-color: rgba(139, 124, 255, 0.6) !important;
-}
-
-.topbar-status-pill {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 9px 13px;
-  border: 1px solid rgba(101, 214, 165, 0.16);
-  border-radius: 30px;
-  background: rgba(101, 214, 165, 0.055);
-}
-
-.topbar-status-pill .MuiTypography-root {
-  color: #83dcb4;
-  font-size: 11px;
-  font-weight: 600;
+.mobile-header-title .MuiTypography-root {
+  display: block;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.topbar-status-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #55d69c;
-  box-shadow: 0 0 10px rgba(85, 214, 156, 0.7);
+.mobile-workspace {
+  padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
 }
 
-.topbar-avatar {
-  width: 39px !important;
-  height: 39px !important;
-  color: #fff !important;
-  font-weight: 700;
-  background: linear-gradient(135deg, #9d8aff, #705ce5) !important;
-  border: 2px solid rgba(191, 177, 255, 0.25);
-  cursor: default;
+.mobile-navigation {
+  position: fixed;
+  z-index: 1100;
+  inset: auto 0 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 2px;
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+  background: #101827;
+  border-top: 1px solid #263249;
 }
 
-@media (max-width: 900px) {
-  .premium-toolbar {
-    padding: 12px 18px !important;
-    gap: 12px;
-  }
-
-  .topbar-description {
-    display: none;
-  }
-
-  .topbar-actions {
-    gap: 10px;
-  }
+.mobile-navigation .mobile-nav-button {
+  min-width: 0;
+  min-height: 48px;
+  flex-direction: column;
+  gap: 3px;
+  padding: 4px 2px;
+  color: #aab6cd;
+  font-size: 11px;
+  line-height: 1.2;
+  text-transform: none;
+  white-space: nowrap;
 }
 
-@media (max-width: 600px) {
-  .premium-toolbar {
-    min-height: 76px !important;
-    padding: 10px 12px !important;
+.mobile-navigation .mobile-nav-button[aria-current="page"] {
+  color: #e0d7ff;
+  background: #302650;
+}
+
+.mobile-workspace .ai-matches-page,
+.mobile-workspace .dashboard-content {
+  padding: 16px 12px 24px;
+}
+
+@media (max-width: 599px) {
+  .resume-profile-page .MuiCardContent-root,
+  .resume-profile-page .MuiCardContent-root:last-child {
+    padding: 12px;
   }
 
-  .topbar-heading {
-    font-size: 13px !important;
+  .dashboard-shell .MuiTypography-h4,
+  .dashboard-shell .matches-page-title,
+  .dashboard-shell .contacts-page-title,
+  .auth-page .MuiTypography-h4 {
+    font-size: 1.25rem !important;
+    line-height: 1.3;
   }
 
-  .topbar-breadcrumb {
-    margin-bottom: 3px;
+  .dashboard-shell .MuiTypography-h5,
+  .dashboard-shell .MuiTypography-h6,
+  .dashboard-shell .matches-section-title,
+  .dashboard-shell .contacts-section-title,
+  .auth-page .MuiTypography-h5,
+  .auth-page .MuiTypography-h6,
+  .MuiDialog-root .MuiDialogTitle-root {
+    font-size: 1rem !important;
   }
 
-  .topbar-breadcrumb .MuiTypography-root {
-    font-size: 8px;
+  :is(.dashboard-shell, .auth-page, .MuiDialog-root) :is(.MuiTypography-body1, .MuiTypography-body2, .MuiInputBase-input, .MuiInputLabel-root),
+  .dashboard-shell :is(.matches-page-subtitle, .matches-section-description, .contacts-page-subtitle) {
+    font-size: 0.8125rem !important;
   }
 
-  .topbar-search-button {
-    width: 39px;
-    min-width: 39px !important;
-    padding: 0 !important;
-    overflow: hidden;
-    font-size: 0 !important;
+  :is(.dashboard-shell, .auth-page, .MuiDialog-root) .MuiTypography-caption {
+    font-size: 0.6875rem !important;
   }
 
-  .topbar-search-button .MuiButton-startIcon {
-    margin: 0;
+  :is(.dashboard-shell, .auth-page, .MuiDialog-root) .MuiButton-root {
+    min-height: 36px;
+    font-size: 0.75rem !important;
   }
 
-  .topbar-search-button .MuiButton-endIcon {
-    display: none;
+  .dashboard-shell .mobile-navigation .mobile-nav-button {
+    min-height: 48px;
+    font-size: 0.6875rem !important;
   }
 
-  .topbar-status-pill {
-    display: none;
-  }
-
-  .topbar-avatar {
-    width: 34px !important;
-    height: 34px !important;
-  }
 }
 
 /* =========================================
@@ -1418,6 +1464,7 @@ body {
   gap: 15px;
 }
 
+.match-collection-card,
 .match-metric-card {
   border: 1px solid #253149 !important;
   border-radius: 15px !important;
@@ -1426,6 +1473,17 @@ body {
     rgba(27, 36, 55, 0.98),
     rgba(17, 24, 39, 0.98)
   ) !important;
+}
+
+.match-collection-card .MuiCardContent-root {
+  padding: 14px 18px;
+}
+
+.match-collection-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
+  gap: 12px 18px;
+  margin-top: 8px;
 }
 
 .match-metric-card .MuiCardContent-root {
@@ -1475,44 +1533,12 @@ body {
 
 /* Filters */
 
-.matches-filter-card {
-  border: 1px solid #253149 !important;
-  border-radius: 13px !important;
-  background: rgba(17, 24, 39, 0.85) !important;
-}
-
-.matches-filter-content {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-  padding: 15px !important;
-}
-
-.matches-search-field {
-  flex: 1 1 260px;
-}
-
-.matches-filter-select {
-  min-width: 155px;
-}
-
-.matches-search-field .MuiOutlinedInput-root,
-.matches-filter-select .MuiOutlinedInput-root {
-  border-radius: 10px;
-  background: rgba(9, 13, 24, 0.4);
-}
-
-.matches-search-field .MuiInputBase-input {
-  font-size: 12px;
-}
-
 /* Match cards */
 
 .matches-jobs-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 17px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
   align-items: stretch;
 }
 
@@ -1540,7 +1566,15 @@ body {
   height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 20px !important;
+  padding: 14px !important;
+}
+
+.match-card-skill-preview {
+  margin-block: 10px;
+}
+
+.match-card-skill-preview .MuiChip-root {
+  max-width: 100%;
 }
 
 .match-card-header {
@@ -1558,8 +1592,8 @@ body {
 }
 
 .match-company-logo {
-  width: 46px;
-  height: 46px;
+  width: 34px;
+  height: 34px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
@@ -1590,13 +1624,13 @@ body {
 }
 
 .match-score-badge {
-  min-width: 65px;
+  min-width: 45px;
   text-align: right;
   flex-shrink: 0;
 }
 
 .match-score-value {
-  font-size: 25px !important;
+  font-size: 21px !important;
   font-weight: 800 !important;
   line-height: 1.1 !important;
 }
@@ -1631,9 +1665,14 @@ body {
 .match-status-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  flex-wrap: wrap;
   gap: 10px;
   margin-top: 15px;
+}
+
+.match-source-link {
+  color: #b9a9ff;
+  white-space: nowrap;
 }
 
 .match-status-row .MuiChip-root {
@@ -1748,15 +1787,20 @@ body {
 .match-card-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 6px;
   margin-top: auto;
-  padding-top: 20px;
+  padding-top: 10px;
 }
 
 .match-card-actions .MuiButton-root {
-  min-height: 35px;
+  flex: 0 0 auto;
+  min-height: 36px;
+  min-width: 0;
+  padding-inline: 9px;
+  white-space: nowrap;
+  overflow-wrap: normal;
   border-radius: 9px;
   font-size: 10px;
 }
@@ -1888,21 +1932,46 @@ body {
   }
 }
 
-@media (max-width: 850px) {
+@container (max-width: 860px) {
+  .matches-jobs-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container (max-width: 650px) {
   .matches-jobs-grid {
     grid-template-columns: 1fr;
-  }
-
-  .matches-filter-content {
-    align-items: stretch;
-  }
-
-  .matches-filter-select {
-    flex: 1 1 150px;
   }
 }
 
 @media (max-width: 600px) {
+  .MuiDialog-root .MuiDialog-paper {
+    margin: 12px;
+    max-width: calc(100% - 24px);
+    max-height: calc(100% - 24px);
+    width: 100%;
+  }
+
+  .MuiDialog-root .MuiDialogTitle-root,
+  .MuiDialog-root .MuiDialogContent-root {
+    padding-inline: 16px;
+  }
+
+  .dashboard-main .MuiTablePagination-toolbar {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+    padding-inline: 8px;
+  }
+
+  .dashboard-main .MuiTablePagination-spacer {
+    display: none;
+  }
+
+  .dashboard-main .MuiTablePagination-toolbar .MuiTablePagination-actions {
+    margin-left: 0;
+  }
+
   .ai-matches-page {
     padding: 20px 14px 30px;
     gap: 22px;
@@ -1942,12 +2011,6 @@ body {
     flex-direction: column;
   }
 
-  .matches-filter-select,
-  .matches-search-field {
-    flex: 1 1 100%;
-    width: 100%;
-  }
-
   .match-job-card-content {
     padding: 15px !important;
   }
@@ -1956,9 +2019,6 @@ body {
     align-items: stretch;
   }
 
-  .match-card-actions .MuiButton-root {
-    flex: 1;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

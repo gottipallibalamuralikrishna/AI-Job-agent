@@ -243,6 +243,8 @@ export default function ResumeProfilePage() {
     window.addEventListener("resume:profile-updated", handleProfileUpdated);
 
     window.addEventListener("resume:uploaded", handleResumeUploaded);
+    const handleResumeDeleted = () => void loadResumes();
+    window.addEventListener("resume:deleted", handleResumeDeleted);
 
     return () => {
       window.removeEventListener(
@@ -251,6 +253,7 @@ export default function ResumeProfilePage() {
       );
 
       window.removeEventListener("resume:uploaded", handleResumeUploaded);
+      window.removeEventListener("resume:deleted", handleResumeDeleted);
     };
   }, [loadResumes]);
 
@@ -359,7 +362,7 @@ export default function ResumeProfilePage() {
   // --------------------------------------------------
 
   return (
-    <Stack spacing={3}>
+    <Stack spacing={{ xs: 1.5, md: 3 }} className="dashboard-content resume-profile-page">
       {/* Resume Upload Component */}
 
       <ResumeUploadSection />

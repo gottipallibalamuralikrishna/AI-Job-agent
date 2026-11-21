@@ -13,12 +13,19 @@ from app.api.v1.router import api_router
 async def lifespan(app):
     stop = Event()
     worker = None
+    mail_worker = None
+    if settings.outreach_enabled:
+        from app.services.outreach_service import worker_loop as mail_loop
+        mail_worker = Thread(target=mail_loop, args=(stop,), daemon=True, name='recruiter-email')
+        mail_worker.start()
     if settings.collection_enabled:
         from app.services.collection_service import worker_loop
         worker = Thread(target=worker_loop, args=(stop,), daemon=True, name="job-collection")
         worker.start()
     yield
     stop.set()
+    if mail_worker:
+        mail_worker.join(timeout=1)
     if worker:
         # Network calls have bounded timeouts; do not block API shutdown.
         worker.join(timeout=1)

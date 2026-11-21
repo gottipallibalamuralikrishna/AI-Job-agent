@@ -199,11 +199,18 @@ class JobMatchService:
         page_size: int = 10,
         matched_only: bool | None = None,
     ) -> list[JobMatch]:
+        from sqlalchemy import column, exists, table
+
+        applications = table("job_applications", column("user_id"), column("job_id"))
 
         # Only return matches belonging to the authenticated user.
         query = self.db.query(JobMatch).join(Resume, Resume.id == JobMatch.resume_id).filter(
             JobMatch.user_id == current_user.id, Resume.is_primary.is_(True)
         )
+        query = query.filter(~exists().where(
+            applications.c.user_id == current_user.id,
+            applications.c.job_id == JobMatch.job_id,
+        ))
 
         # Filter matched jobs
         if matched_only is True:

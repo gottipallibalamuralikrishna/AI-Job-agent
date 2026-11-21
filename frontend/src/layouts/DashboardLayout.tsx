@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   AppBar,
@@ -20,35 +20,27 @@ import {
 } from "@mui/material";
 import {
   BriefcaseBusiness,
-  Bot,
-  Bookmark,
   FileUser,
-  LayoutDashboard,
-  Menu,
+  Ellipsis,
+  Sparkles,
   RadioTower,
-  Settings,
   Users,
   ClipboardList,
   Target,
   LogOut,
   Search,
-  ArrowUpRight,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 const drawerWidth = 252;
 
 const navigation = [
-  { label: "Overview", path: "/", icon: LayoutDashboard },
-  { label: "All Jobs", path: "/jobs", icon: BriefcaseBusiness },
   { label: "AI Matches", path: "/matches", icon: Target },
+  { label: "All Jobs", path: "/jobs", icon: BriefcaseBusiness },
   { label: "Telegram Jobs", path: "/telegram", icon: RadioTower },
   { label: "HR Contacts", path: "/contacts", icon: Users },
-  { label: "Saved Jobs", path: "/saved", icon: Bookmark },
   { label: "Applications", path: "/applications", icon: ClipboardList },
   { label: "Resume Profile", path: "/resume", icon: FileUser },
-  { label: "AI Assistant", path: "/assistant", icon: Bot },
-  { label: "Settings", path: "/settings", icon: Settings },
 ];
 
 export default function DashboardLayout() {
@@ -59,22 +51,26 @@ export default function DashboardLayout() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
+  const currentPage = navigation.find((item) => item.path === location.pathname);
+  const mobileTabs = [navigation[0], navigation[1], navigation[4], navigation[5]];
+  const moreSelected = location.pathname === "/telegram" || location.pathname === "/contacts";
+
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [location.pathname]);
+
   const sidebar = (
     <Box className="sidebar-content">
       <Box className="sidebar-brand">
-        <Box className="brand-symbol">✦</Box>
+        <Box className="brand-symbol"><Sparkles size={19} aria-hidden="true" /></Box>
         <Box>
           <Typography fontWeight={800} letterSpacing={-0.5}>
             JobPilot AI
           </Typography>
-          <Typography variant="caption" color="text.secondary">
-            JOB SEARCH WORKSPACE
-          </Typography>
         </Box>
       </Box>
       <Divider />
-      <Typography className="nav-section-label">WORKSPACE</Typography>
-      <List className="sidebar-nav">
+      <List className="sidebar-nav" component="nav" aria-label="Workspace">
         {navigation.map(({ label, path, icon: Icon }) => {
           const selected = location.pathname === path;
           return (
@@ -99,11 +95,11 @@ export default function DashboardLayout() {
         <Divider />
         <Box className="sidebar-user">
           <Avatar>{user?.full_name?.[0] ?? "U"}</Avatar>
-          <Box flex={1} minWidth={0}>
+          <Box minWidth={0} title={user?.full_name}>
             <Typography variant="body2" fontWeight={650} noWrap>
               {user?.full_name}
             </Typography>
-            <Typography variant="caption" color="text.secondary" noWrap>
+            <Typography variant="caption" color="text.secondary" display="block" noWrap title={user?.email}>
               {user?.email}
             </Typography>
           </Box>
@@ -131,6 +127,7 @@ export default function DashboardLayout() {
           flexShrink: 0,
           "& .MuiDrawer-paper": {
             width: drawerWidth,
+            maxWidth: "100vw",
             boxSizing: "border-box",
             background: "#0e1422",
             borderRight: "1px solid #222d42",
@@ -141,72 +138,51 @@ export default function DashboardLayout() {
       </Drawer>
       <Box className="dashboard-main">
         <AppBar position="sticky" elevation={0} className="dashboard-topbar">
-          <Toolbar className="topbar-toolbar premium-toolbar">
-            {!isDesktop && (
-              <IconButton
-                color="inherit"
-                onClick={() => setMobileOpen(true)}
-                edge="start"
-                sx={{ mr: 1 }}
-              >
-                <Menu size={20} />
-              </IconButton>
-            )}
-
-            {/* Dynamic page information */}
-            <Box className="topbar-page-info">
-              <Box className="topbar-breadcrumb">
-                <Typography>JOBPILOT AI</Typography>
-                <span>/</span>
-                <Typography className="topbar-current-page">
-                  {navigation.find((item) => item.path === location.pathname)
-                    ?.label ?? "Overview"}
-                </Typography>
+          {isDesktop ? (
+            <Toolbar className="workspace-header">
+              <Typography variant="h6" fontWeight={750}>{currentPage?.label ?? "Workspace"}</Typography>
+              <Box className="workspace-header-actions">
+                <Button variant="outlined" startIcon={<Search size={16} />} onClick={() => navigate("/jobs")}>
+                  Find jobs
+                </Button>
+                <Tooltip title={user?.full_name ?? "My account"}>
+                  <Avatar sx={{ width: 34, height: 34 }}>{user?.full_name?.[0] ?? "U"}</Avatar>
+                </Tooltip>
               </Box>
-
-              <Typography className="topbar-heading">
-                {location.pathname === "/"
-                  ? "Your job search command center"
-                  : (navigation.find((item) => item.path === location.pathname)
-                      ?.label ?? "Your workspace")}
-              </Typography>
-
-              <Typography className="topbar-description">
-                Discover opportunities and move your career forward.
-              </Typography>
-            </Box>
-
-            {/* Right side actions */}
-            <Box className="topbar-actions">
-              <Button
-                variant="outlined"
-                startIcon={<Search size={16} />}
-                endIcon={<ArrowUpRight size={14} />}
-                onClick={() => navigate("/jobs")}
-                className="topbar-search-button"
-              >
-                Search opportunities
-              </Button>
-
-              <Tooltip title="Your workspace is active">
-                <Box className="topbar-status-pill">
-                  <span className="topbar-status-dot" />
-                  <Typography>Workspace active</Typography>
-                </Box>
-              </Tooltip>
-
-              <Tooltip title={user?.full_name ?? "My account"}>
-                <Avatar className="topbar-avatar">
-                  {user?.full_name?.[0] ?? "U"}
-                </Avatar>
-              </Tooltip>
-            </Box>
-          </Toolbar>
+            </Toolbar>
+          ) : (
+            <Toolbar className="mobile-header">
+              <Box className="mobile-header-mark"><Sparkles size={20} /></Box>
+              <Box className="mobile-header-title">
+                <Typography variant="caption" color="text.secondary">JobPilot AI</Typography>
+                <Typography fontWeight={750}>{currentPage?.label ?? "Workspace"}</Typography>
+              </Box>
+              <IconButton aria-label="Find jobs" onClick={() => navigate("/jobs")}><Search size={21} /></IconButton>
+            </Toolbar>
+          )}
         </AppBar>
 
-        <main>
+        <main className={isDesktop ? undefined : "mobile-workspace"}>
           <Outlet />
         </main>
+        {!isDesktop && (
+          <Box component="nav" aria-label="Mobile navigation" className="mobile-navigation">
+            {mobileTabs.map(({ path, icon: Icon }, index) => (
+              <Button key={path} className="mobile-nav-button"
+                aria-current={location.pathname === path ? "page" : undefined}
+                onClick={() => navigate(path)}>
+                <Icon size={19} />
+                <span>{["Matches", "Jobs", "Applied", "Resume"][index]}</span>
+              </Button>
+            ))}
+            <Button className="mobile-nav-button" aria-label="More navigation options"
+              aria-expanded={mobileOpen} aria-current={moreSelected ? "page" : undefined}
+              onClick={() => setMobileOpen(true)}>
+              <Ellipsis size={19} />
+              <span>More</span>
+            </Button>
+          </Box>
+        )}
       </Box>
     </Box>
   );

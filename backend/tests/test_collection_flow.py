@@ -192,7 +192,11 @@ def test_worker_continues_after_source_failure_and_records_results(db, monkeypat
     user, _, _ = seed_profile(db)
     first = JobSource(name="Failure", source_type="rss")
     second = JobSource(name="Success", source_type="greenhouse")
-    db.add_all([first, second])
+    disabled = JobSource(
+        name="Himalayas", source_type="api",
+        external_source_id=collection_service.HIMALAYAS_SOURCE_ID, is_active=False,
+    )
+    db.add_all([first, second, disabled])
     run = enqueue_primary(db, user.id)
     db.commit()
     run_id = run.id

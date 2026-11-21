@@ -28,6 +28,7 @@ class ResumeProcessingService:
                 Resume.id == resume_id,
                 Resume.user_id == current_user.id,
             )
+            .with_for_update()
             .first()
         )
 

@@ -54,6 +54,30 @@ def collector_without_credentials():
     return collector
 
 
+def test_compact_channel_post_preserves_location_and_application_url():
+    body = ("Senior Frontend Engineer - Fleet Management\nVerkada, San Mateo, CA\n"
+            "https://www.linkedin.com/jobs/view/senior-frontend-engineer-at-verkada-4489192084")
+    job = build_job_data(SimpleNamespace(id=114299, date=datetime.now(timezone.utc), message=body),
+                         "findfrontendjobs")
+    assert job['title'] == 'Senior Frontend Engineer - Fleet Management'
+    assert job['company_name'] == 'Verkada'
+    assert job['location'] == 'San Mateo, CA'
+    assert job['application_url'] == body.splitlines()[2]
+    assert job['source_message_url'] == 'https://t.me/findfrontendjobs/114299'
+    assert job['required_skills'] == []
+    from app.services.job_location import matches_job_location
+    assert not matches_job_location(job, 'India', True)
+
+
+@pytest.mark.parametrize('url', [
+    'https://www.linkedin.com/posts/frontend-news',
+    'https://linkedin.com.evil.example/jobs/view/123',
+    'https://example.com/jobs/view/123',
+])
+def test_compact_parser_requires_an_actual_job_link(url):
+    assert not telegram.is_job_post(f'Frontend Engineer\nExample, India\n{url}')
+
+
 def test_telegram_catches_up_after_server_downtime():
     collector = collector_without_credentials()
     now = datetime(2026, 11, 15, 2, 30, tzinfo=timezone.utc)

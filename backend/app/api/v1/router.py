@@ -22,3 +22,5 @@ api_router.include_router(job_matches.router)
 
 from app.api.v1.endpoints import applications
 api_router.include_router(applications.router)
+from app.api.v1.endpoints import outreach
+api_router.include_router(outreach.router)

@@ -12,6 +12,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.collectors.greenhouse import GreenhouseCollector
+from app.collectors.himalayas import HimalayasCollector, SOURCE_ID as HIMALAYAS_SOURCE_ID
 from app.collectors.lever import LeverCollector
 from app.collectors.rss import RSSCollector
 from app.collectors.telegram import TelegramCollector
@@ -29,12 +30,19 @@ from app.collectors.career_page import CareerPageCollector
 from app.services.job_service import JobService
 from app.services.job_match_service import JobMatchService
 from app.services.job_location import infer_work_mode, matches_job_location
+from app.services.resume_search import resume_search_queries
 
 
 logger = logging.getLogger(__name__)
 
 
 class JobIngestionService:
+
+    @classmethod
+    def collector_for(cls, source):
+        if source.source_type == "api" and source.external_source_id == HIMALAYAS_SOURCE_ID:
+            return HimalayasCollector
+        return cls.COLLECTORS.get(source.source_type)
 
     COLLECTORS = {
         "greenhouse": GreenhouseCollector,
@@ -135,9 +143,7 @@ class JobIngestionService:
                 detail="Job source is inactive.",
             )
 
-        collector_class = self.COLLECTORS.get(
-            source.source_type
-        )
+        collector_class = self.collector_for(source)
 
         if collector_class is None and provided_jobs is None:
             raise HTTPException(
@@ -156,7 +162,7 @@ class JobIngestionService:
         preferences = {user.id: (user.preferred_job_country, user.include_international_remote) for user in self.db.query(User).filter(
             User.id.in_([profile.user_id for profile in resume_profiles])).all()}
         if resume_profiles and collector is not None:
-            collector.query = resume_profiles[0].profile_data.get("professional_title") or "software developer"
+            collector.queries = resume_search_queries(resume_profiles[0].profile_data)
 
         created = 0
         updated = 0
