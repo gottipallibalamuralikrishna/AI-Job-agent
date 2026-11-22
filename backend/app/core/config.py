@@ -1,6 +1,7 @@
 
 from functools import lru_cache
 
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,7 +10,18 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
     environment: str = "development"
 
-    database_url: str = "postgresql+psycopg://jobpilot:jobpilot@localhost:5432/jobpilot"
+    database_url: str = Field(
+        default="postgresql+psycopg://jobpilot:jobpilot@localhost:5432/jobpilot",
+        validation_alias=AliasChoices("DATABASE_URL", "POSTGRES_URL"),
+    )
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def use_psycopg_driver(cls, value: str) -> str:
+        for prefix in ("postgresql://", "postgres://"):
+            if value.startswith(prefix):
+                return "postgresql+psycopg://" + value[len(prefix):]
+        return value
 
     secret_key: str = "CHANGE_ME_TO_A_LONG_RANDOM_SECRET"
     algorithm: str = "HS256"
