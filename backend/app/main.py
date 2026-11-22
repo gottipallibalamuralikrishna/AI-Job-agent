@@ -1,12 +1,19 @@
 
+import logging
 from contextlib import asynccontextmanager
 from threading import Event, Thread
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 
 from app.core.config import settings
 from app.api.v1.router import api_router
+from app.db.session import engine, on_vercel
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -14,11 +21,11 @@ async def lifespan(app):
     stop = Event()
     worker = None
     mail_worker = None
-    if settings.outreach_enabled:
+    if settings.outreach_enabled and not on_vercel:
         from app.services.outreach_service import worker_loop as mail_loop
         mail_worker = Thread(target=mail_loop, args=(stop,), daemon=True, name='recruiter-email')
         mail_worker.start()
-    if settings.collection_enabled:
+    if settings.collection_enabled and not on_vercel:
         from app.services.collection_service import worker_loop
         worker = Thread(target=worker_loop, args=(stop,), daemon=True, name="job-collection")
         worker.start()
@@ -94,3 +101,21 @@ def health_check():
         "application": settings.app_name,
         "environment": settings.environment,
     }
+
+
+@app.get("/ready", tags=["Health"])
+def readiness_check():
+    with engine.connect() as connection:
+        connection.execute(text("SELECT 1"))
+    return JSONResponse({"status": "ready", "database": "connected"}, headers={"Cache-Control": "no-store"})
+
+
+@app.exception_handler(OperationalError)
+async def database_unavailable(request: Request, exc: OperationalError):
+    logger.warning("Database operation failed: error=%s sqlstate=%s",
+                   type(exc.orig).__name__, getattr(exc.orig, "sqlstate", None))
+    return JSONResponse(
+        status_code=503,
+        content={"detail": "Database temporarily unavailable."},
+        headers={"Cache-Control": "no-store"},
+    )
